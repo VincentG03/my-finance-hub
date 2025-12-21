@@ -15,7 +15,12 @@ st.set_page_config(
     page_title="My Finance Hub",
     page_icon="💰",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
 
 # Custom CSS for premium styling
@@ -160,22 +165,79 @@ def load_custom_css():
             padding-top: 2rem;
         }
         
-        /* Sidebar toggle button - make icon white */
-        button[kind="header"] {
-            color: #FFFFFF !important;
+        /* TARGET THE EXACT COLLAPSE BUTTON - Force it to be always visible and BLACK */
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarCollapseButton"] button,
+        [data-testid="stSidebarCollapseButton"] span,
+        [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+            display: inline-flex !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            color: #000000 !important;
         }
         
-        button[kind="header"] svg {
+        /* Force the button itself to be always visible */
+        button[kind="headerNoPadding"][data-testid="stBaseButton-headerNoPadding"],
+        button[kind="headerNoPadding"] {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        /* Override the light gray color on the icon spans */
+        [data-testid="stSidebarCollapseButton"] span[color],
+        [data-testid="stIconMaterial"] {
+            color: rgb(0, 0, 0) !important;
+            opacity: 1 !important;
+        }
+        
+        /* Header background - keep it dark/black */
+        [data-testid="stHeader"] {
+            background-color: rgba(14, 17, 23, 1);
+        }
+        
+        /* When sidebar is CLOSED - chevron should be WHITE (on black header) */
+        [data-testid="collapsedControl"],
+        [data-testid="collapsedControl"] *,
+        [data-testid="collapsedControl"] svg,
+        [data-testid="collapsedControl"] svg * {
+            color: #FFFFFF !important;
             fill: #FFFFFF !important;
-            color: #FFFFFF !important;
+            stroke: #FFFFFF !important;
         }
         
-        [data-testid="collapsedControl"] {
-            color: #FFFFFF !important;
+        /* When sidebar is OPEN - chevron should be BLACK (on light sidebar) */
+        [data-testid="stSidebar"] button[kind="header"],
+        [data-testid="stSidebar"] button[kind="header"] *,
+        [data-testid="stSidebar"] button[kind="header"] svg,
+        [data-testid="stSidebar"] button[kind="header"] svg *,
+        [data-testid="stSidebar"] [data-testid="baseButton-header"],
+        [data-testid="stSidebar"] [data-testid="baseButton-header"] *,
+        [data-testid="stSidebar"] [data-testid="baseButton-header"] svg,
+        [data-testid="stSidebar"] [data-testid="baseButton-header"] svg * {
+            color: #000000 !important;
+            fill: #000000 !important;
+            stroke: #000000 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
         
-        [data-testid="collapsedControl"] svg {
+        /* Force chevron button in sidebar to always be visible */
+        [data-testid="stSidebar"] button[kind="header"],
+        [data-testid="stSidebar"] [data-testid="baseButton-header"] {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        /* Other header buttons should be white */
+        [data-testid="stHeader"] button,
+        [data-testid="stHeader"] button *,
+        header button,
+        header button * {
+            color: #FFFFFF !important;
             fill: #FFFFFF !important;
+            stroke: #FFFFFF !important;
+            background-color: transparent !important;
         }
         
         /* Select box styling */
