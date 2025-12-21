@@ -121,83 +121,159 @@ def create_assets_liabilities_sheet(user_name, user_config):
     
     return pd.DataFrame(data)
 
-# ==================== EMPLOYMENT ====================
-def create_employment_sheet(user_name, user_config):
-    """Create employment/salary data for a user"""
+# ==================== MORTGAGE ====================
+def create_mortgage_sheet(user_name, user_config):
+    """Create mortgage tracking data for a user"""
     start_date = datetime(2022, 1, 1)
     num_months = 36
     dates = generate_dates(start_date, num_months)
     
     data = []
-    base_salary = user_config['base_salary']
-    bonus_range = user_config['bonus_range']
+    
+    # Mortgage details
+    initial_balance = user_config['mortgage']
+    interest_rate = user_config.get('mortgage_rate', 0.045)  # 4.5% annual
+    monthly_rate = interest_rate / 12
+    
+    current_balance = initial_balance
     
     for date in dates:
-        monthly_salary = base_salary / 12
-        # Annual bonus in December
-        bonus = random.uniform(bonus_range[0], bonus_range[1]) if date.month == 12 else 0
+        # Calculate interest for the month
+        interest_payment = current_balance * monthly_rate
         
-        # Some monthly variations
-        overtime = random.uniform(0, 1000) if random.random() > 0.7 else 0
+        # Fixed monthly payment (approximate using standard formula)
+        monthly_payment = user_config.get('monthly_payment', 3000)
+        principal_payment = monthly_payment - interest_payment
         
-        gross_income = monthly_salary + bonus + overtime
-        tax = gross_income * 0.25  # Simplified tax
-        superannuation = gross_income * 0.11  # Australian super
-        net_income = gross_income - tax
+        # Update balance
+        current_balance -= principal_payment
+        current_balance = max(0, current_balance)  # Don't go negative
         
         data.append({
             'Date': date,
-            'Gross Income': round(gross_income, 2),
-            'Tax': round(tax, 2),
-            'Superannuation': round(superannuation, 2),
-            'Net Income': round(net_income, 2),
-            'Bonus': round(bonus, 2),
-            'Overtime': round(overtime, 2)
+            'Balance': round(current_balance, 2),
+            'Principal Payment': round(principal_payment, 2),
+            'Interest Payment': round(interest_payment, 2),
+            'Total Payment': round(monthly_payment, 2)
         })
+    
+    return pd.DataFrame(data)
+
+# ==================== EMPLOYMENT ====================
+def create_employment_sheet(user_name, user_config):
+    """Create employment history data for a user (job history, not monthly salary)"""
+    
+    data = []
+    
+    # Sample job history for each user
+    if user_name == 'Vincent':
+        data = [
+            {
+                'Date Started': '2020-03-01',
+                'Date Ended': '2022-12-31',
+                'Company': 'Tech Corp Australia',
+                'Job Position': 'Senior Software Engineer',
+                'Job Type': 'Full-Time',
+                'Wage (inc Super)': 110000,
+                'Equivalent Salary': 110000,
+                'Bonus': 15000,
+                'Stock': 5000,
+                'Other Remuneration': 2000,
+                'Comments': 'Great company culture'
+            },
+            {
+                'Date Started': '2023-01-15',
+                'Date Ended': '',
+                'Company': 'Innovation Labs',
+                'Job Position': 'Lead Developer',
+                'Job Type': 'Full-Time',
+                'Wage (inc Super)': 133200,
+                'Equivalent Salary': 120000,
+                'Bonus': 20000,
+                'Stock': 10000,
+                'Other Remuneration': 3000,
+                'Comments': 'Current role - excellent benefits'
+            }
+        ]
+    elif user_name == 'Amy':
+        data = [
+            {
+                'Date Started': '2019-07-01',
+                'Date Ended': '2023-06-30',
+                'Company': 'Marketing Solutions Pty Ltd',
+                'Job Position': 'Marketing Manager',
+                'Job Type': 'Full-Time',
+                'Wage (inc Super)': 88800,
+                'Equivalent Salary': 80000,
+                'Bonus': 8000,
+                'Stock': 0,
+                'Other Remuneration': 1500,
+                'Comments': 'Good work-life balance'
+            },
+            {
+                'Date Started': '2023-07-01',
+                'Date Ended': '',
+                'Company': 'Digital Growth Agency',
+                'Job Position': 'Senior Marketing Manager',
+                'Job Type': 'Full-Time',
+                'Wage (inc Super)': 105450,
+                'Equivalent Salary': 95000,
+                'Bonus': 12000,
+                'Stock': 5000,
+                'Other Remuneration': 2000,
+                'Comments': 'Current role - great team'
+            }
+        ]
+    else:  # Test
+        data = [
+            {
+                'Date Started': '2021-02-01',
+                'Date Ended': '',
+                'Company': 'Service Industries Ltd',
+                'Job Position': 'Account Manager',
+                'Job Type': 'Full-Time',
+                'Wage (inc Super)': 83250,
+                'Equivalent Salary': 75000,
+                'Bonus': 5000,
+                'Stock': 0,
+                'Other Remuneration': 1000,
+                'Comments': 'Current role - stable income'
+            }
+        ]
     
     return pd.DataFrame(data)
 
 # ==================== INVESTMENTS ====================
 def create_investments_sheet(user_name, user_config):
-    """Create investment tracker data for a user"""
-    start_date = datetime(2022, 1, 1)
-    num_months = 36
-    dates = generate_dates(start_date, num_months)
-    
-    # Different asset types
-    assets = ['Australian Shares', 'International Shares', 'Property Fund', 'Bonds', 'Cash']
+    """Create simple investment holdings list for a user"""
     
     data = []
-    initial_investment = user_config['initial_investment']
-    monthly_contribution = user_config['monthly_contribution']
     
-    current_values = {asset: initial_investment / len(assets) for asset in assets}
-    
-    for i, date in enumerate(dates):
-        for asset in assets:
-            # Simulate market growth with volatility
-            if asset == 'Australian Shares':
-                growth_rate = random.uniform(-0.03, 0.05)
-            elif asset == 'International Shares':
-                growth_rate = random.uniform(-0.04, 0.06)
-            elif asset == 'Property Fund':
-                growth_rate = random.uniform(-0.01, 0.03)
-            elif asset == 'Bonds':
-                growth_rate = random.uniform(-0.005, 0.015)
-            else:  # Cash
-                growth_rate = 0.002
-            
-            # Add monthly contribution
-            contribution = monthly_contribution / len(assets)
-            current_values[asset] = current_values[asset] * (1 + growth_rate) + contribution
-            
-            data.append({
-                'Date': date,
-                'Asset Type': asset,
-                'Value': round(current_values[asset], 2),
-                'Monthly Contribution': round(contribution, 2),
-                'Growth Rate': round(growth_rate * 100, 2)
-            })
+    # Sample investment holdings for each user
+    if user_name == 'Vincent':
+        data = [
+            {'Asset Type': 'Australian Shares', 'Ticker': 'VAS', 'Value': 45000},
+            {'Asset Type': 'International Shares', 'Ticker': 'VGS', 'Value': 38000},
+            {'Asset Type': 'Property Fund', 'Ticker': 'VAP', 'Value': 25000},
+            {'Asset Type': 'Bonds', 'Ticker': 'VGB', 'Value': 20000},
+            {'Asset Type': 'Cash', 'Ticker': 'N/A', 'Value': 15000},
+        ]
+    elif user_name == 'Amy':
+        data = [
+            {'Asset Type': 'Australian Shares', 'Ticker': 'VAS', 'Value': 32000},
+            {'Asset Type': 'International Shares', 'Ticker': 'VGS', 'Value': 28000},
+            {'Asset Type': 'Property Fund', 'Ticker': 'VAP', 'Value': 18000},
+            {'Asset Type': 'Bonds', 'Ticker': 'VGB', 'Value': 15000},
+            {'Asset Type': 'Cash', 'Ticker': 'N/A', 'Value': 10000},
+        ]
+    else:  # Test
+        data = [
+            {'Asset Type': 'Australian Shares', 'Ticker': 'VAS', 'Value': 22000},
+            {'Asset Type': 'International Shares', 'Ticker': 'VGS', 'Value': 18000},
+            {'Asset Type': 'Property Fund', 'Ticker': 'VAP', 'Value': 12000},
+            {'Asset Type': 'Bonds', 'Ticker': 'VGB', 'Value': 8000},
+            {'Asset Type': 'Cash', 'Ticker': 'N/A', 'Value': 5000},
+        ]
     
     return pd.DataFrame(data)
 
@@ -221,6 +297,8 @@ def main():
             'super': 150000,
             'vehicle': 30000,
             'mortgage': 600000,
+            'mortgage_rate': 0.045,
+            'monthly_payment': 3500,
             'car_loan': 25000,
             'credit_card_base': 5000
         },
@@ -235,6 +313,8 @@ def main():
             'super': 120000,
             'vehicle': 25000,
             'mortgage': 600000,  # Joint mortgage
+            'mortgage_rate': 0.045,
+            'monthly_payment': 3500,
             'car_loan': 20000,
             'credit_card_base': 4000
         },
@@ -249,6 +329,8 @@ def main():
             'super': 80000,
             'vehicle': 18000,
             'mortgage': 400000,
+            'mortgage_rate': 0.050,
+            'monthly_payment': 2500,
             'car_loan': 15000,
             'credit_card_base': 3000
         }
@@ -278,12 +360,21 @@ def main():
             df.to_excel(writer, sheet_name=user_name, index=False)
     print("   ✓ Created with sheets: Vincent, Amy, Test")
     
+    # Create mortgage.xlsx
+    print("\n4. Creating mortgage.xlsx...")
+    with pd.ExcelWriter('data/mortgage.xlsx', engine='openpyxl') as writer:
+        for user_name, config in users_config.items():
+            df = create_mortgage_sheet(user_name, config)
+            df.to_excel(writer, sheet_name=user_name, index=False)
+    print("   ✓ Created with sheets: Vincent, Amy, Test")
+    
     print("\n" + "=" * 60)
     print("✓ All Excel files created successfully!")
     print("\nFiles created in data/ directory:")
     print("  - assets_liabilities.xlsx (Date, Category, Type, Name, Value)")
-    print("  - employment.xlsx (Date, Gross Income, Tax, Superannuation, Net Income, Bonus, Overtime)")
-    print("  - investments.xlsx (Date, Asset Type, Value, Monthly Contribution, Growth Rate)")
+    print("  - employment.xlsx (Date Started, Date Ended, Company, Job Position, etc.)")
+    print("  - investments.xlsx (Asset Type, Ticker, Value)")
+    print("  - mortgage.xlsx (Date, Balance, Principal Payment, Interest Payment, Total Payment)")
     print("\nYou can now run: streamlit run app.py")
 
 if __name__ == "__main__":
