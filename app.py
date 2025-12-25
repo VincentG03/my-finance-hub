@@ -1,6 +1,6 @@
 """
-My Finance Hub - Premium Personal Finance Dashboard
-A sophisticated financial tracking application built with Streamlit
+My Finance Hub - Personal Finance Dashboard
+Real data-driven financial tracking application built with Streamlit
 """
 
 import streamlit as st
@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+from data_parser import load_financial_data
 
 # Page configuration
 st.set_page_config(
@@ -54,23 +55,12 @@ def load_custom_css():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         
-        /* Premium container styling - invisible, just for spacing */
+        /* Premium container styling */
         .premium-container {
             background-color: transparent;
             border: none;
-            border-radius: 0;
             padding: 0;
             margin: 8px 0;
-            box-shadow: none;
-        }
-        
-        /* Hide empty streamlit containers */
-        .element-container:empty {
-            display: none;
-        }
-        
-        [data-testid="stVerticalBlock"] > div:empty {
-            display: none;
         }
         
         /* Title styling */
@@ -131,11 +121,11 @@ def load_custom_css():
         }
         
         .positive {
-            color: #4A9EFF;
+            color: #10B981;
         }
         
         .negative {
-            color: #FF6B6B;
+            color: #EF4444;
         }
         
         /* Button styling */
@@ -161,141 +151,23 @@ def load_custom_css():
             border-right: 1px solid #E5E5E5;
         }
         
-        [data-testid="stSidebar"] .css-1d391kg {
-            padding-top: 2rem;
-        }
-        
-        /* TARGET THE EXACT COLLAPSE BUTTON - Force it to be always visible and BLACK */
-        [data-testid="stSidebarCollapseButton"],
-        [data-testid="stSidebarCollapseButton"] button,
-        [data-testid="stSidebarCollapseButton"] span,
-        [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
-            display: inline-flex !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            color: #000000 !important;
-        }
-        
-        /* Force the button itself to be always visible */
-        button[kind="headerNoPadding"][data-testid="stBaseButton-headerNoPadding"],
-        button[kind="headerNoPadding"] {
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-        
-        /* Override the light gray color on the icon spans */
-        [data-testid="stSidebarCollapseButton"] span[color],
-        [data-testid="stIconMaterial"] {
-            color: rgb(0, 0, 0) !important;
-            opacity: 1 !important;
-        }
-        
-        /* Header background - keep it dark/black */
+        /* Header customization */
         [data-testid="stHeader"] {
             background-color: rgba(14, 17, 23, 1);
         }
         
-        /* When sidebar is CLOSED - chevron should be WHITE (on black header) */
+        /* When sidebar is CLOSED - chevron should be WHITE */
         [data-testid="collapsedControl"],
-        [data-testid="collapsedControl"] *,
-        [data-testid="collapsedControl"] svg,
-        [data-testid="collapsedControl"] svg * {
+        [data-testid="collapsedControl"] * {
             color: #FFFFFF !important;
             fill: #FFFFFF !important;
-            stroke: #FFFFFF !important;
         }
         
-        /* When sidebar is OPEN - chevron should be BLACK (on light sidebar) */
-        [data-testid="stSidebar"] button[kind="header"],
+        /* When sidebar is OPEN - chevron should be BLACK */
         [data-testid="stSidebar"] button[kind="header"] *,
-        [data-testid="stSidebar"] button[kind="header"] svg,
-        [data-testid="stSidebar"] button[kind="header"] svg *,
-        [data-testid="stSidebar"] [data-testid="baseButton-header"],
-        [data-testid="stSidebar"] [data-testid="baseButton-header"] *,
-        [data-testid="stSidebar"] [data-testid="baseButton-header"] svg,
-        [data-testid="stSidebar"] [data-testid="baseButton-header"] svg * {
+        [data-testid="stSidebar"] [data-testid="baseButton-header"] * {
             color: #000000 !important;
             fill: #000000 !important;
-            stroke: #000000 !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-        
-        /* Force chevron button in sidebar to always be visible */
-        [data-testid="stSidebar"] button[kind="header"],
-        [data-testid="stSidebar"] [data-testid="baseButton-header"] {
-            display: block !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-        }
-        
-        /* Other header buttons should be white */
-        [data-testid="stHeader"] button,
-        [data-testid="stHeader"] button *,
-        header button,
-        header button * {
-            color: #FFFFFF !important;
-            fill: #FFFFFF !important;
-            stroke: #FFFFFF !important;
-            background-color: transparent !important;
-        }
-        
-        /* Select box styling */
-        .stSelectbox > div > div {
-            background-color: #FFFFFF;
-            border: 2px solid #E5E5E5;
-            border-radius: 8px;
-        }
-        
-        /* Dropdown menu styling */
-        [data-baseweb="popover"] {
-            background-color: #FFFFFF !important;
-        }
-        
-        [data-baseweb="menu"] {
-            background-color: #FFFFFF !important;
-        }
-        
-        [role="option"] {
-            background-color: #FFFFFF !important;
-            color: #000000 !important;
-        }
-        
-        [role="option"]:hover {
-            background-color: #F0F0F0 !important;
-            color: #000000 !important;
-        }
-        
-        /* Select box text */
-        .stSelectbox [data-baseweb="select"] > div {
-            color: #000000 !important;
-        }
-        
-        /* Tab styling */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            background-color: #F8FAFB;
-            border-radius: 8px 8px 0 0;
-            padding: 12px 24px;
-            font-weight: 500;
-            color: #666666;
-        }
-        
-        .stTabs [aria-selected="true"] {
-            background-color: #FFFFFF;
-            color: #000000;
-            border-bottom: 2px solid #4A9EFF;
-        }
-        
-        /* Chart container */
-        .chart-container {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
         }
         
         </style>
@@ -303,68 +175,10 @@ def load_custom_css():
 
 # Data loading functions
 @st.cache_data
-def load_salary_data(user):
-    """Load employment data for selected user"""
-    try:
-        df = pd.read_excel('data/employment.xlsx', sheet_name=user)
-        df['Date'] = pd.to_datetime(df['Date'])
-        return df
-    except Exception as e:
-        st.error(f"Error loading employment data: {e}")
-        return pd.DataFrame()
-
-@st.cache_data
-def load_investment_data(user):
-    """Load investment tracker data for selected user"""
-    try:
-        df = pd.read_excel('data/investments.xlsx', sheet_name=user)
-        df['Date'] = pd.to_datetime(df['Date'])
-        return df
-    except Exception as e:
-        st.error(f"Error loading investment data: {e}")
-        return pd.DataFrame()
-
-@st.cache_data
-def load_mortgage_data(user):
-    """Load mortgage tracker data for selected user (calculated from assets/liabilities)"""
-    try:
-        df = load_assets_liabilities_data(user)
-        if df.empty:
-            return pd.DataFrame()
-        
-        # Filter for mortgage liability
-        mortgage_df = df[(df['Category'] == 'Liability') & (df['Type'] == 'Mortgage')].copy()
-        
-        if mortgage_df.empty:
-            return pd.DataFrame()
-        
-        # Calculate mortgage metrics
-        mortgage_df = mortgage_df.rename(columns={'Value': 'Remaining Balance'})
-        mortgage_df['Monthly Payment'] = 3200.00  # Approximate monthly payment
-        mortgage_df['Interest Rate'] = 4.5  # Approximate interest rate
-        
-        # Calculate principal and interest portions
-        mortgage_df['Interest Payment'] = (mortgage_df['Remaining Balance'] * (mortgage_df['Interest Rate'] / 100)) / 12
-        mortgage_df['Principal Payment'] = mortgage_df['Monthly Payment'] - mortgage_df['Interest Payment']
-        
-        # Select relevant columns
-        mortgage_df = mortgage_df[['Date', 'Remaining Balance', 'Monthly Payment', 'Principal Payment', 'Interest Payment', 'Interest Rate']]
-        
-        return mortgage_df.sort_values('Date')
-    except Exception as e:
-        st.error(f"Error loading mortgage data: {e}")
-        return pd.DataFrame()
-
-@st.cache_data
-def load_assets_liabilities_data(user):
-    """Load assets and liabilities data for selected user"""
-    try:
-        df = pd.read_excel('data/assets_liabilities.xlsx', sheet_name=user)
-        df['Date'] = pd.to_datetime(df['Date'])
-        return df
-    except Exception as e:
-        st.error(f"Error loading assets/liabilities data: {e}")
-        return pd.DataFrame()
+def load_data():
+    """Load all financial data using the parser"""
+    parser = load_financial_data('data/vincent_financial_data.xlsx')
+    return parser
 
 # Utility functions
 def format_currency(value):
@@ -377,139 +191,82 @@ def calculate_percentage_change(current, previous):
         return 0
     return ((current - previous) / previous) * 100
 
-# Initialize session state
-if 'user_selected' not in st.session_state:
-    st.session_state.user_selected = False
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = None
-
 def main():
     """Main application logic"""
     load_custom_css()
     
-    # Landing page - User selection
-    if not st.session_state.user_selected:
-        show_landing_page()
-    else:
-        # Main dashboard
-        show_dashboard()
-
-def show_landing_page():
-    """Display the landing page with user selection"""
-    st.markdown('<h1 class="main-title">My Finance Hub</h1>', unsafe_allow_html=True)
-    
-    # Center the dropdown
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col2:
-        user = st.selectbox(
-            "Select User",
-            options=["Vincent", "Amy", "Test"],
-            key="user_selector"
-        )
-        
-        if user:
-            if st.button("Continue to Dashboard", use_container_width=True):
-                st.session_state.current_user = user
-                st.session_state.user_selected = True
-                st.rerun()
-
-def show_dashboard():
-    """Display the main dashboard with all trackers"""
+    # Initialize data parser
+    try:
+        parser = load_data()
+    except Exception as e:
+        st.error(f"Error loading financial data: {e}")
+        return
     
     # Sidebar navigation
     with st.sidebar:
-        st.markdown(f"### Welcome, {st.session_state.current_user}!")
+        st.markdown("### My Finance Hub")
         st.markdown("---")
         
         page = st.radio(
             "Navigation",
-            ["Summary Overview", 
-             "Investment Tracker", 
-             "Mortgage Debt Tracker", 
-             "Assets & Liabilities", 
-             "Salary Tracker",
-             "Retirement Calculator"],
+            ["📊 Dashboard", 
+             "💰 Net Worth",
+             "💼 Investments",
+             "👔 Employment History",
+             "📈 Growth Analysis"],
             key="navigation"
         )
         
         st.markdown("---")
-        
-        if st.button("Change User", use_container_width=True):
-            st.session_state.user_selected = False
-            st.session_state.current_user = None
-            st.rerun()
+        st.markdown(f"*Last updated: {datetime.now().strftime('%Y-%m-%d')}*")
     
     # Display selected page
-    if page == "Summary Overview":
-        show_summary_overview()
-    elif page == "Investment Tracker":
-        show_investment_tracker()
-    elif page == "Mortgage Debt Tracker":
-        show_mortgage_tracker()
-    elif page == "Assets & Liabilities":
-        show_assets_liabilities()
-    elif page == "Salary Tracker":
-        show_salary_tracker()
-    elif page == "Retirement Calculator":
-        show_retirement_calculator()
+    if page == "📊 Dashboard":
+        show_dashboard(parser)
+    elif page == "💰 Net Worth":
+        show_net_worth(parser)
+    elif page == "💼 Investments":
+        show_investments(parser)
+    elif page == "👔 Employment History":
+        show_employment(parser)
+    elif page == "📈 Growth Analysis":
+        show_growth_analysis(parser)
 
-def show_summary_overview():
-    """Display summary overview page"""
-    st.markdown('<h2 class="section-title">Summary Overview</h2>', unsafe_allow_html=True)
+def show_dashboard(parser):
+    """Display main dashboard"""
+    st.markdown('<h2 class="section-title">Financial Dashboard</h2>', unsafe_allow_html=True)
     
-    user = st.session_state.current_user
+    # Get latest metrics
+    latest_date, net_worth, total_assets, total_liabilities = parser.get_latest_net_worth()
     
-    # Load all data
-    salary_df = load_salary_data(user)
-    investment_df = load_investment_data(user)
-    mortgage_df = load_mortgage_data(user)
-    assets_liabilities_df = load_assets_liabilities_data(user)
+    # Get assets & liabilities data for trend
+    al_df = parser.parse_assets_liabilities()
     
-    # Calculate key metrics
-    if not salary_df.empty:
-        latest_salary = salary_df.iloc[-1]
-        prev_salary = salary_df.iloc[-2] if len(salary_df) > 1 else latest_salary
+    # Calculate previous month for comparison
+    dates = sorted(al_df['Date'].unique())
+    if len(dates) >= 2:
+        prev_date = dates[-2]
+        prev_data = al_df[al_df['Date'] == prev_date]
+        prev_assets = prev_data[prev_data['Category'] == 'Asset']['Value'].sum()
+        prev_liabilities = prev_data[prev_data['Category'] == 'Liability']['Value'].sum()
+        prev_net_worth = prev_assets - prev_liabilities
         
-        total_income_ytd = salary_df[salary_df['Date'].dt.year == datetime.now().year]['Net Income'].sum()
-        avg_monthly_income = salary_df['Net Income'].tail(12).mean()
+        nw_change = calculate_percentage_change(net_worth, prev_net_worth)
+        assets_change = calculate_percentage_change(total_assets, prev_assets)
+    else:
+        nw_change = 0
+        assets_change = 0
     
-    if not investment_df.empty:
-        latest_investments = investment_df[investment_df['Date'] == investment_df['Date'].max()]
-        total_investment_value = latest_investments['Value'].sum()
-        
-        prev_month_investments = investment_df[investment_df['Date'] == investment_df['Date'].unique()[-2]]
-        prev_investment_value = prev_month_investments['Value'].sum()
-        investment_change = calculate_percentage_change(total_investment_value, prev_investment_value)
-    
-    if not mortgage_df.empty:
-        current_mortgage = mortgage_df.iloc[-1]['Remaining Balance']
-        initial_mortgage = mortgage_df.iloc[0]['Remaining Balance']
-    
-    if not assets_liabilities_df.empty:
-        latest_date = assets_liabilities_df['Date'].max()
-        latest_data = assets_liabilities_df[assets_liabilities_df['Date'] == latest_date]
-        
-        total_assets = latest_data[latest_data['Category'] == 'Asset']['Value'].sum()
-        total_liabilities = latest_data[latest_data['Category'] == 'Liability']['Value'].sum()
-        net_worth = total_assets - total_liabilities
-        
-        # Previous month for comparison
-        prev_date = assets_liabilities_df['Date'].unique()[-2]
-        prev_data = assets_liabilities_df[assets_liabilities_df['Date'] == prev_date]
-        prev_net_worth = prev_data[prev_data['Category'] == 'Asset']['Value'].sum() - prev_data[prev_data['Category'] == 'Liability']['Value'].sum()
-        net_worth_change = calculate_percentage_change(net_worth, prev_net_worth)
-    
-    # Display key metrics in cards
-    col1, col2, col3, col4 = st.columns(4)
+    # Key metrics
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Net Worth</div>
                 <div class="metric-value">{format_currency(net_worth)}</div>
-                <div class="metric-change {'positive' if net_worth_change > 0 else 'negative'}">
-                    {'↑' if net_worth_change > 0 else '↓'} {abs(net_worth_change):.2f}% vs last month
+                <div class="metric-change {'positive' if nw_change > 0 else 'negative'}">
+                    {'↑' if nw_change > 0 else '↓'} {abs(nw_change):.1f}% vs last period
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -518,38 +275,31 @@ def show_summary_overview():
         st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Total Assets</div>
-                <div class="metric-value">{format_currency(total_assets)}</div>
-                <div class="metric-change metric-label">Current Value</div>
+                <div class="metric-value positive">{format_currency(total_assets)}</div>
+                <div class="metric-change {'positive' if assets_change > 0 else 'negative'}">
+                    {'↑' if assets_change > 0 else '↓'} {abs(assets_change):.1f}% vs last period
+                </div>
             </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">Investment Portfolio</div>
-                <div class="metric-value">{format_currency(total_investment_value)}</div>
-                <div class="metric-change {'positive' if investment_change > 0 else 'negative'}">
-                    {'↑' if investment_change > 0 else '↓'} {abs(investment_change):.2f}% vs last month
-                </div>
+                <div class="metric-label">Total Liabilities</div>
+                <div class="metric-value negative">{format_currency(total_liabilities)}</div>
+                <div class="metric-change metric-label">As of {latest_date.strftime('%Y-%m-%d')}</div>
             </div>
         """, unsafe_allow_html=True)
     
-    with col4:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Avg Monthly Income</div>
-                <div class="metric-value">{format_currency(avg_monthly_income)}</div>
-                <div class="metric-change metric-label">Last 12 months</div>
-            </div>
-        """, unsafe_allow_html=True)
+    st.markdown("---")
     
-    # Net Worth Trend Chart
+    # Net Worth Trend
     st.markdown("### Net Worth Trend")
     
     # Calculate net worth over time
     net_worth_data = []
-    for date in assets_liabilities_df['Date'].unique():
-        date_data = assets_liabilities_df[assets_liabilities_df['Date'] == date]
+    for date in sorted(al_df['Date'].unique()):
+        date_data = al_df[al_df['Date'] == date]
         assets = date_data[date_data['Category'] == 'Asset']['Value'].sum()
         liabilities = date_data[date_data['Category'] == 'Liability']['Value'].sum()
         net_worth_data.append({
@@ -559,217 +309,40 @@ def show_summary_overview():
             'Net Worth': assets - liabilities
         })
     
-    net_worth_df = pd.DataFrame(net_worth_data)
+    nw_df = pd.DataFrame(net_worth_data)
     
     fig = go.Figure()
     
+    # Net worth line
     fig.add_trace(go.Scatter(
-        x=net_worth_df['Date'],
-        y=net_worth_df['Net Worth'],
-        mode='lines',
+        x=nw_df['Date'],
+        y=nw_df['Net Worth'],
+        mode='lines+markers',
         name='Net Worth',
         line=dict(color='#4A9EFF', width=3),
+        marker=dict(size=8, color='#4A9EFF'),
         fill='tozeroy',
-        fillcolor='rgba(74, 158, 255, 0.1)',
-        textfont=dict(color='#000000')
+        fillcolor='rgba(74, 158, 255, 0.1)'
     ))
     
     fig.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
-        font=dict(family='Inter', color='#000000', size=12),
+        font=dict(family='Inter', color='#000000'),
         xaxis=dict(
             showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Date', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
+            gridcolor='#E5E5E5',
+            title='Date',
+            title_font=dict(size=14, color='#000000')
         ),
         yaxis=dict(
             showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Net Worth ($)', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
+            gridcolor='#E5E5E5',
+            title='Net Worth ($)',
+            title_font=dict(size=14, color='#000000')
         ),
         hovermode='x unified',
-        height=400,
-        hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Asset Allocation
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### Asset Allocation")
-        
-        asset_breakdown = latest_data[latest_data['Category'] == 'Asset'].groupby('Type')['Value'].sum().reset_index()
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=asset_breakdown['Type'],
-            values=asset_breakdown['Value'],
-            hole=0.4,
-            marker=dict(colors=['#4A9EFF', '#3A8EEF', '#2A7EDF', '#1A6ECF', '#0A5EBF']),
-            textfont=dict(color='#000000', size=14),
-            textposition='inside'
-        )])
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000'),
-            showlegend=True,
-            legend=dict(
-                font=dict(color='#000000', size=12),
-                bgcolor='white'
-            ),
-            height=350
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("### Monthly Income vs Expenses")
-        
-        # Get recent months
-        recent_salary = salary_df.tail(6)
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            x=recent_salary['Date'],
-            y=recent_salary['Net Income'],
-            name='Net Income',
-            marker_color='#4A9EFF',
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.add_trace(go.Bar(
-            x=recent_salary['Date'],
-            y=recent_salary['Tax'],
-            name='Tax',
-            marker_color='#000000',
-            textfont=dict(color='#FFFFFF')
-        ))
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=False,
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Amount ($)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            barmode='group',
-            height=350,
-            legend=dict(font=dict(color='#000000', size=12)),
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-def show_investment_tracker():
-    """Display investment tracker page"""
-    st.markdown('<h2 class="section-title">Investment Tracker</h2>', unsafe_allow_html=True)
-    
-    user = st.session_state.current_user
-    investment_df = load_investment_data(user)
-    
-    if investment_df.empty:
-        st.warning("No investment data available.")
-        return
-    
-    # Latest values
-    latest_date = investment_df['Date'].max()
-    latest_investments = investment_df[investment_df['Date'] == latest_date]
-    total_value = latest_investments['Value'].sum()
-    
-    # Calculate returns
-    first_date = investment_df['Date'].min()
-    initial_investments = investment_df[investment_df['Date'] == first_date]
-    initial_value = initial_investments['Value'].sum()
-    total_return = ((total_value - initial_value) / initial_value) * 100
-    
-    # Display summary metrics
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Portfolio Value</div>
-                <div class="metric-value">{format_currency(total_value)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Return</div>
-                <div class="metric-value {'positive' if total_return > 0 else 'negative'}">
-                    {total_return:.2f}%
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        monthly_contribution = latest_investments['Monthly Contribution'].sum()
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Monthly Contribution</div>
-                <div class="metric-value">{format_currency(monthly_contribution)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Portfolio value over time
-    st.markdown("### Portfolio Value Over Time")
-    
-    portfolio_timeline = investment_df.groupby('Date')['Value'].sum().reset_index()
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=portfolio_timeline['Date'],
-        y=portfolio_timeline['Value'],
-        mode='lines',
-        name='Total Value',
-        line=dict(color='#4A9EFF', width=3),
-        fill='tozeroy',
-        fillcolor='rgba(74, 158, 255, 0.1)',
-        textfont=dict(color='#000000')
-    ))
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(family='Inter', color='#000000', size=12),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Date', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Value ($)', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        hovermode='x unified',
-        height=400,
-        hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
+        height=400
     )
     
     st.plotly_chart(fig, use_container_width=True)
@@ -778,327 +351,82 @@ def show_investment_tracker():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### Current Asset Allocation")
+        st.markdown("### Asset Breakdown")
+        latest_data = al_df[al_df['Date'] == latest_date]
+        asset_breakdown = latest_data[latest_data['Category'] == 'Asset'].groupby('Type')['Value'].sum().reset_index()
+        asset_breakdown = asset_breakdown.sort_values('Value', ascending=False)
         
         fig = go.Figure(data=[go.Pie(
-            labels=latest_investments['Asset Type'],
-            values=latest_investments['Value'],
-            hole=0.4,
-            marker=dict(colors=['#4A9EFF', '#3A8EEF', '#2A7EDF', '#1A6ECF', '#0A5EBF']),
-            textfont=dict(color='#000000', size=14),
-            textposition='inside'
+            labels=asset_breakdown['Type'],
+            values=asset_breakdown['Value'],
+            hole=0.5,
+            marker=dict(colors=px.colors.sequential.Blues_r),
+            textposition='auto',
+            textfont=dict(size=13, color='#000000')
         )])
         
         fig.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
             font=dict(family='Inter', color='#000000'),
-            legend=dict(
-                font=dict(color='#000000', size=12),
-                bgcolor='white'
-            ),
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("### Asset Performance")
-        
-        # Get latest value for each asset type
-        asset_performance = []
-        for asset_type in investment_df['Asset Type'].unique():
-            asset_data = investment_df[investment_df['Asset Type'] == asset_type]
-            initial = asset_data.iloc[0]['Value']
-            current = asset_data.iloc[-1]['Value']
-            performance = ((current - initial) / initial) * 100
-            asset_performance.append({
-                'Asset': asset_type,
-                'Performance': performance
-            })
-        
-        perf_df = pd.DataFrame(asset_performance)
-        
-        fig = go.Figure(go.Bar(
-            x=perf_df['Asset'],
-            y=perf_df['Performance'],
-            marker_color=['#4A9EFF' if x > 0 else '#000000' for x in perf_df['Performance']],
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=False,
-                title=dict(text='Asset Type', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Return (%)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
+            showlegend=True,
             height=400,
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
+            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05)
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def show_mortgage_tracker():
-    """Display mortgage debt tracker page"""
-    st.markdown('<h2 class="section-title">Mortgage Debt Tracker</h2>', unsafe_allow_html=True)
-    
-    user = st.session_state.current_user
-    mortgage_df = load_mortgage_data(user)
-    
-    if mortgage_df.empty:
-        st.warning("No mortgage data available.")
-        return
-    
-    # Current mortgage details
-    current = mortgage_df.iloc[-1]
-    initial = mortgage_df.iloc[0]
-    
-    total_paid = initial['Remaining Balance'] - current['Remaining Balance']
-    total_interest_paid = mortgage_df['Interest Payment'].sum()
-    
-    # Display key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Remaining Balance</div>
-                <div class="metric-value">{format_currency(current['Remaining Balance'])}</div>
-            </div>
-        """, unsafe_allow_html=True)
     
     with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Monthly Payment</div>
-                <div class="metric-value">{format_currency(current['Monthly Payment'])}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Principal Paid</div>
-                <div class="metric-value">{format_currency(total_paid)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Interest Paid</div>
-                <div class="metric-value">{format_currency(total_interest_paid)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Remaining balance over time
-    st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-    st.markdown("### Remaining Balance Over Time")
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=mortgage_df['Date'],
-        y=mortgage_df['Remaining Balance'],
-        mode='lines',
-        name='Remaining Balance',
-        line=dict(color='#4A9EFF', width=3),
-        fill='tozeroy',
-        fillcolor='rgba(74, 158, 255, 0.1)',
-        textfont=dict(color='#000000')
-    ))
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(family='Inter', color='#000000', size=12),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Date', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Balance ($)', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        hovermode='x unified',
-        height=400,
-        hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Principal vs Interest
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Monthly Payment Breakdown")
-        
-        recent_payments = mortgage_df.tail(12)
+        st.markdown("### Assets vs Liabilities Over Time")
         
         fig = go.Figure()
         
         fig.add_trace(go.Bar(
-            x=recent_payments['Date'],
-            y=recent_payments['Principal Payment'],
-            name='Principal',
-            marker_color='#4A9EFF',
-            textfont=dict(color='#000000')
+            x=nw_df['Date'],
+            y=nw_df['Assets'],
+            name='Assets',
+            marker_color='#10B981'
         ))
         
         fig.add_trace(go.Bar(
-            x=recent_payments['Date'],
-            y=recent_payments['Interest Payment'],
-            name='Interest',
-            marker_color='#000000',
-            textfont=dict(color='#FFFFFF')
+            x=nw_df['Date'],
+            y=nw_df['Liabilities'],
+            name='Liabilities',
+            marker_color='#EF4444'
         ))
         
         fig.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
+            font=dict(family='Inter', color='#000000'),
             xaxis=dict(
                 showgrid=False,
-                title=dict(text='Date', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
+                title='Date',
+                title_font=dict(size=14, color='#000000')
             ),
             yaxis=dict(
                 showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Payment ($)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
+                gridcolor='#E5E5E5',
+                title='Amount ($)',
+                title_font=dict(size=14, color='#000000')
             ),
-            barmode='stack',
+            barmode='group',
             height=400,
-            legend=dict(font=dict(color='#000000', size=12)),
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Cumulative Interest Paid")
-        
-        mortgage_df['Cumulative Interest'] = mortgage_df['Interest Payment'].cumsum()
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=mortgage_df['Date'],
-            y=mortgage_df['Cumulative Interest'],
-            mode='lines',
-            name='Cumulative Interest',
-            line=dict(color='#000000', width=3),
-            fill='tozeroy',
-            fillcolor='rgba(0, 0, 0, 0.1)',
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Date', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Cumulative Interest ($)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            hovermode='x unified',
-            height=400,
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-def show_assets_liabilities():
-    """Display assets and liabilities tracker page"""
-    st.markdown('<h2 class="section-title">Assets & Liabilities Tracker</h2>', unsafe_allow_html=True)
+def show_net_worth(parser):
+    """Display detailed net worth page"""
+    st.markdown('<h2 class="section-title">Net Worth Analysis</h2>', unsafe_allow_html=True)
     
-    user = st.session_state.current_user
-    df = load_assets_liabilities_data(user)
+    al_df = parser.parse_assets_liabilities()
     
-    if df.empty:
-        st.warning("No assets/liabilities data available.")
-        return
-    
-    # Calculate current totals
-    latest_date = df['Date'].max()
-    latest_data = df[df['Date'] == latest_date]
-    
-    total_assets = latest_data[latest_data['Category'] == 'Asset']['Value'].sum()
-    total_liabilities = latest_data[latest_data['Category'] == 'Liability']['Value'].sum()
-    net_worth = total_assets - total_liabilities
-    
-    # Display key metrics
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Assets</div>
-                <div class="metric-value positive">{format_currency(total_assets)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Liabilities</div>
-                <div class="metric-value negative">{format_currency(total_liabilities)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Net Worth</div>
-                <div class="metric-value">{format_currency(net_worth)}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Net worth trend
-    st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-    st.markdown("### Net Worth Trend")
-    
-    # Calculate net worth for each date
+    # Calculate net worth over time
     net_worth_data = []
-    for date in df['Date'].unique():
-        date_data = df[df['Date'] == date]
+    for date in sorted(al_df['Date'].unique()):
+        date_data = al_df[al_df['Date'] == date]
         assets = date_data[date_data['Category'] == 'Asset']['Value'].sum()
         liabilities = date_data[date_data['Category'] == 'Liability']['Value'].sum()
         net_worth_data.append({
@@ -1108,542 +436,678 @@ def show_assets_liabilities():
             'Net Worth': assets - liabilities
         })
     
-    net_worth_df = pd.DataFrame(net_worth_data)
+    nw_df = pd.DataFrame(net_worth_data)
     
-    fig = go.Figure()
+    # Calculate growth metrics
+    initial_nw = nw_df.iloc[0]['Net Worth']
+    current_nw = nw_df.iloc[-1]['Net Worth']
+    total_growth = current_nw - initial_nw
+    total_growth_pct = ((current_nw - initial_nw) / abs(initial_nw)) * 100 if initial_nw != 0 else 0
     
-    fig.add_trace(go.Scatter(
-        x=net_worth_df['Date'],
-        y=net_worth_df['Assets'],
-        mode='lines',
-        name='Assets',
-        line=dict(color='#4A9EFF', width=2),
-        stackgroup='one',
-        textfont=dict(color='#000000')
-    ))
+    # Time period
+    time_period_days = (nw_df.iloc[-1]['Date'] - nw_df.iloc[0]['Date']).days
+    time_period_months = time_period_days / 30.44
     
-    fig.add_trace(go.Scatter(
-        x=net_worth_df['Date'],
-        y=net_worth_df['Liabilities'],
-        mode='lines',
-        name='Liabilities',
-        line=dict(color='#000000', width=2),
-        stackgroup='two',
-        textfont=dict(color='#000000')
-    ))
+    # Monthly average growth
+    avg_monthly_growth = total_growth / time_period_months if time_period_months > 0 else 0
     
-    fig.add_trace(go.Scatter(
-        x=net_worth_df['Date'],
-        y=net_worth_df['Net Worth'],
-        mode='lines',
-        name='Net Worth',
-        line=dict(color='#2A7EDF', width=3, dash='dash'),
-        textfont=dict(color='#000000')
-    ))
-    
-    fig.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(family='Inter', color='#000000', size=12),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Date', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Value ($)', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
-        ),
-        hovermode='x unified',
-        height=400,
-        legend=dict(font=dict(color='#000000', size=12)),
-        hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Asset and liability breakdown
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Asset Breakdown")
-        
-        assets_breakdown = latest_data[latest_data['Category'] == 'Asset'].groupby('Type')['Value'].sum().reset_index()
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=assets_breakdown['Type'],
-            values=assets_breakdown['Value'],
-            hole=0.4,
-            marker=dict(colors=['#4A9EFF', '#3A8EEF', '#2A7EDF', '#1A6ECF', '#0A5EBF']),
-            textfont=dict(color='#000000', size=14),
-            textposition='inside'
-        )])
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000'),
-            legend=dict(
-                font=dict(color='#000000', size=12),
-                bgcolor='white'
-            ),
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Liability Breakdown")
-        
-        liabilities_breakdown = latest_data[latest_data['Category'] == 'Liability'].groupby('Type')['Value'].sum().reset_index()
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=liabilities_breakdown['Type'],
-            values=liabilities_breakdown['Value'],
-            hole=0.4,
-            marker=dict(colors=['#000000', '#333333', '#666666', '#999999']),
-            textfont=dict(color='#FFFFFF', size=14),
-            textposition='inside'
-        )])
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000'),
-            legend=dict(
-                font=dict(color='#000000', size=12),
-                bgcolor='white'
-            ),
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Detailed tables
-    st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-    st.markdown("### Detailed Breakdown")
-    
-    tab1, tab2 = st.tabs(["Assets", "Liabilities"])
-    
-    with tab1:
-        assets_table = latest_data[latest_data['Category'] == 'Asset'][['Type', 'Name', 'Value']].sort_values('Value', ascending=False)
-        st.dataframe(assets_table, use_container_width=True, hide_index=True)
-    
-    with tab2:
-        liabilities_table = latest_data[latest_data['Category'] == 'Liability'][['Type', 'Name', 'Value']].sort_values('Value', ascending=False)
-        st.dataframe(liabilities_table, use_container_width=True, hide_index=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def show_salary_tracker():
-    """Display salary tracker page"""
-    st.markdown('<h2 class="section-title">Salary Tracker</h2>', unsafe_allow_html=True)
-    
-    user = st.session_state.current_user
-    salary_df = load_salary_data(user)
-    
-    if salary_df.empty:
-        st.warning("No salary data available.")
-        return
-    
-    # Calculate metrics
-    ytd_data = salary_df[salary_df['Date'].dt.year == datetime.now().year]
-    ytd_gross = ytd_data['Gross Income'].sum()
-    ytd_net = ytd_data['Net Income'].sum()
-    ytd_tax = ytd_data['Tax'].sum()
-    avg_monthly = salary_df['Net Income'].tail(12).mean()
-    
-    # Display key metrics
+    # Display metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">YTD Gross Income</div>
-                <div class="metric-value">{format_currency(ytd_gross)}</div>
+                <div class="metric-label">Current Net Worth</div>
+                <div class="metric-value">{format_currency(current_nw)}</div>
             </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">YTD Net Income</div>
-                <div class="metric-value">{format_currency(ytd_net)}</div>
+                <div class="metric-label">Total Growth</div>
+                <div class="metric-value {'positive' if total_growth > 0 else 'negative'}">
+                    {format_currency(total_growth)}
+                </div>
             </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">YTD Tax Paid</div>
-                <div class="metric-value">{format_currency(ytd_tax)}</div>
+                <div class="metric-label">Growth Rate</div>
+                <div class="metric-value {'positive' if total_growth_pct > 0 else 'negative'}">
+                    {total_growth_pct:.1f}%
+                </div>
             </div>
         """, unsafe_allow_html=True)
     
     with col4:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-label">Avg Monthly Net</div>
-                <div class="metric-value">{format_currency(avg_monthly)}</div>
+                <div class="metric-label">Avg Monthly Growth</div>
+                <div class="metric-value {'positive' if avg_monthly_growth > 0 else 'negative'}">
+                    {format_currency(avg_monthly_growth)}
+                </div>
             </div>
         """, unsafe_allow_html=True)
     
-    # Income over time
-    st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-    st.markdown("### Income Over Time")
+    st.markdown("---")
+    
+    # Detailed net worth chart with trend line
+    st.markdown("### Net Worth Progression")
     
     fig = go.Figure()
     
+    # Actual net worth
     fig.add_trace(go.Scatter(
-        x=salary_df['Date'],
-        y=salary_df['Gross Income'],
-        mode='lines',
-        name='Gross Income',
-        line=dict(color='#4A9EFF', width=2),
-        textfont=dict(color='#000000')
+        x=nw_df['Date'],
+        y=nw_df['Net Worth'],
+        mode='lines+markers',
+        name='Net Worth',
+        line=dict(color='#4A9EFF', width=3),
+        marker=dict(size=10, color='#4A9EFF'),
+        fill='tozeroy',
+        fillcolor='rgba(74, 158, 255, 0.15)'
     ))
     
+    # Add trend line
+    from sklearn.linear_model import LinearRegression
+    X = np.array(range(len(nw_df))).reshape(-1, 1)
+    y = nw_df['Net Worth'].values
+    model = LinearRegression()
+    model.fit(X, y)
+    trend = model.predict(X)
+    
     fig.add_trace(go.Scatter(
-        x=salary_df['Date'],
-        y=salary_df['Net Income'],
+        x=nw_df['Date'],
+        y=trend,
         mode='lines',
-        name='Net Income',
-        line=dict(color='#2A7EDF', width=2),
-        textfont=dict(color='#000000')
+        name='Trend',
+        line=dict(color='#EF4444', width=2, dash='dash')
     ))
     
     fig.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
-        font=dict(family='Inter', color='#000000', size=12),
+        font=dict(family='Inter', color='#000000'),
         xaxis=dict(
             showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Date', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
+            gridcolor='#E5E5E5',
+            title='Date',
+            title_font=dict(size=14, color='#000000')
         ),
         yaxis=dict(
             showgrid=True,
-            gridcolor='#F0F0F0',
-            title=dict(text='Income ($)', font=dict(color='#000000', size=14)),
-            tickfont=dict(color='#000000', size=12),
-            color='#000000'
+            gridcolor='#E5E5E5',
+            title='Net Worth ($)',
+            title_font=dict(size=14, color='#000000')
         ),
         hovermode='x unified',
-        height=400,
-        legend=dict(font=dict(color='#000000', size=12)),
-        hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
+        height=500,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Income breakdown
-    col1, col2 = st.columns(2)
+    # Monthly change analysis
+    st.markdown("### Month-over-Month Changes")
     
-    with col1:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Monthly Income Breakdown (Last 12 Months)")
-        
-        recent_data = salary_df.tail(12)
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            x=recent_data['Date'],
-            y=recent_data['Net Income'],
-            name='Net Income',
-            marker_color='#4A9EFF',
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.add_trace(go.Bar(
-            x=recent_data['Date'],
-            y=recent_data['Tax'],
-            name='Tax',
-            marker_color='#000000',
-            textfont=dict(color='#FFFFFF')
-        ))
-        
-        fig.add_trace(go.Bar(
-            x=recent_data['Date'],
-            y=recent_data['Superannuation'],
-            name='Super',
-            marker_color='#2A7EDF',
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=False,
-                title=dict(text='Date', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Amount ($)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            barmode='stack',
-            height=400,
-            legend=dict(font=dict(color='#000000', size=12)),
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    nw_df['Month-over-Month Change'] = nw_df['Net Worth'].diff()
+    nw_df['MoM Change %'] = nw_df['Net Worth'].pct_change() * 100
     
-    with col2:
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Tax Rate Analysis")
-        
-        salary_df['Effective Tax Rate'] = (salary_df['Tax'] / salary_df['Gross Income']) * 100
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=salary_df['Date'],
-            y=salary_df['Effective Tax Rate'],
-            mode='lines+markers',
-            name='Effective Tax Rate',
-            line=dict(color='#000000', width=2),
-            marker=dict(size=6, color='#000000'),
-            textfont=dict(color='#000000')
-        ))
-        
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Date', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Tax Rate (%)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000',
-                range=[0, 50]
-            ),
-            hovermode='x unified',
-            height=400,
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    fig = go.Figure()
+    
+    colors = ['#10B981' if x > 0 else '#EF4444' for x in nw_df['Month-over-Month Change'].fillna(0)]
+    
+    fig.add_trace(go.Bar(
+        x=nw_df['Date'],
+        y=nw_df['Month-over-Month Change'],
+        marker_color=colors,
+        name='MoM Change',
+        text=nw_df['MoM Change %'].fillna(0).round(1).astype(str) + '%',
+        textposition='outside'
+    ))
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(family='Inter', color='#000000'),
+        xaxis=dict(
+            showgrid=False,
+            title='Date',
+            title_font=dict(size=14, color='#000000')
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#E5E5E5',
+            title='Change ($)',
+            title_font=dict(size=14, color='#000000')
+        ),
+        height=400,
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Detailed table
+    st.markdown("### Detailed Breakdown by Period")
+    
+    latest_date = al_df['Date'].max()
+    latest_data = al_df[al_df['Date'] == latest_date]
+    
+    tab1, tab2 = st.tabs(["Assets", "Liabilities"])
+    
+    with tab1:
+        assets = latest_data[latest_data['Category'] == 'Asset'][['Type', 'Value']].sort_values('Value', ascending=False)
+        assets['% of Total'] = (assets['Value'] / assets['Value'].sum() * 100).round(2)
+        assets['Value'] = assets['Value'].apply(format_currency)
+        st.dataframe(assets, use_container_width=True, hide_index=True)
+    
+    with tab2:
+        liabilities = latest_data[latest_data['Category'] == 'Liability'][['Type', 'Value']].sort_values('Value', ascending=False)
+        if not liabilities.empty:
+            liabilities['% of Total'] = (liabilities['Value'] / liabilities['Value'].sum() * 100).round(2)
+            liabilities['Value'] = liabilities['Value'].apply(format_currency)
+            st.dataframe(liabilities, use_container_width=True, hide_index=True)
+        else:
+            st.info("No liabilities recorded")
 
-def show_retirement_calculator():
-    """Display retirement calculator page"""
-    st.markdown('<h2 class="section-title">Retirement Calculator</h2>', unsafe_allow_html=True)
+def show_investments(parser):
+    """Display investment tracker page"""
+    st.markdown('<h2 class="section-title">Investment Portfolio</h2>', unsafe_allow_html=True)
     
-    user = st.session_state.current_user
+    inv_df = parser.parse_investments()
     
-    # Load current financial data
-    salary_df = load_salary_data(user)
-    investment_df = load_investment_data(user)
+    if inv_df.empty:
+        st.warning("No investment data available.")
+        return
     
-    st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-    st.markdown("### Retirement Planning Inputs")
+    # Calculate current holdings
+    inv_summary = parser.get_investment_summary()
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        current_age = st.number_input("Current Age", min_value=18, max_value=100, value=35)
-        retirement_age = st.number_input("Retirement Age", min_value=current_age, max_value=100, value=65)
-        current_savings = st.number_input("Current Retirement Savings ($)", min_value=0, value=150000, step=10000)
-        monthly_contribution = st.number_input("Monthly Contribution ($)", min_value=0, value=2000, step=100)
-    
-    with col2:
-        expected_return = st.slider("Expected Annual Return (%)", min_value=0.0, max_value=15.0, value=7.0, step=0.5)
-        inflation_rate = st.slider("Expected Inflation Rate (%)", min_value=0.0, max_value=10.0, value=2.5, step=0.5)
-        retirement_income = st.number_input("Desired Annual Retirement Income ($)", min_value=0, value=60000, step=5000)
-        life_expectancy = st.number_input("Life Expectancy", min_value=retirement_age, max_value=120, value=90)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Calculate retirement projections
-    if st.button("Calculate Retirement Plan", use_container_width=True):
-        years_to_retirement = retirement_age - current_age
-        years_in_retirement = life_expectancy - retirement_age
-        
-        # Project retirement savings
-        monthly_return = (expected_return / 100) / 12
-        months_to_retirement = years_to_retirement * 12
-        
-        # Future value of current savings
-        fv_current = current_savings * ((1 + monthly_return) ** months_to_retirement)
-        
-        # Future value of monthly contributions
-        if monthly_return > 0:
-            fv_contributions = monthly_contribution * (((1 + monthly_return) ** months_to_retirement - 1) / monthly_return)
-        else:
-            fv_contributions = monthly_contribution * months_to_retirement
-        
-        total_at_retirement = fv_current + fv_contributions
-        
-        # Calculate required savings for retirement
-        real_return = ((1 + expected_return/100) / (1 + inflation_rate/100)) - 1
-        if real_return > 0:
-            required_savings = retirement_income * ((1 - (1 + real_return) ** -years_in_retirement) / real_return)
-        else:
-            required_savings = retirement_income * years_in_retirement
-        
-        # Display results
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Retirement Projection Results")
+    if not inv_summary.empty:
+        total_invested = inv_summary['Total Invested'].sum()
+        total_units = inv_summary['Total Units'].sum()
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown(f"""
                 <div class="metric-card">
-                    <div class="metric-label">Projected at Retirement</div>
-                    <div class="metric-value">{format_currency(total_at_retirement)}</div>
-                    <div class="metric-change metric-label">Age {retirement_age}</div>
+                    <div class="metric-label">Total Invested</div>
+                    <div class="metric-value">{format_currency(total_invested)}</div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
                 <div class="metric-card">
-                    <div class="metric-label">Required for Goal</div>
-                    <div class="metric-value">{format_currency(required_savings)}</div>
-                    <div class="metric-change metric-label">{format_currency(retirement_income)}/year</div>
+                    <div class="metric-label">Unique Holdings</div>
+                    <div class="metric-value">{len(inv_summary)}</div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col3:
-            surplus_deficit = total_at_retirement - required_savings
             st.markdown(f"""
                 <div class="metric-card">
-                    <div class="metric-label">{'Surplus' if surplus_deficit > 0 else 'Shortfall'}</div>
-                    <div class="metric-value {'positive' if surplus_deficit > 0 else 'negative'}">
-                        {format_currency(abs(surplus_deficit))}
-                    </div>
-                    <div class="metric-change metric-label">
-                        {'On track!' if surplus_deficit > 0 else 'Need to save more'}
-                    </div>
+                    <div class="metric-label">Total Transactions</div>
+                    <div class="metric-value">{len(inv_df)}</div>
                 </div>
             """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Investment over time
+    st.markdown("### Cumulative Investment Value")
+    
+    inv_df_sorted = inv_df.sort_values('Trade Date')
+    inv_df_sorted['Cumulative Invested'] = inv_df_sorted['Total Value'].cumsum()
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=inv_df_sorted['Trade Date'],
+        y=inv_df_sorted['Cumulative Invested'],
+        mode='lines+markers',
+        name='Cumulative Invested',
+        line=dict(color='#10B981', width=3),
+        marker=dict(size=6),
+        fill='tozeroy',
+        fillcolor='rgba(16, 185, 129, 0.1)'
+    ))
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(family='Inter', color='#000000'),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#E5E5E5',
+            title='Trade Date',
+            title_font=dict(size=14, color='#000000')
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#E5E5E5',
+            title='Cumulative Amount ($)',
+            title_font=dict(size=14, color='#000000')
+        ),
+        hovermode='x unified',
+        height=400
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Holdings breakdown
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Portfolio Allocation by Investment")
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Projection chart
-        st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-        st.markdown("### Savings Growth Projection")
-        
-        # Create projection data
-        projection_data = []
-        balance = current_savings
-        
-        for year in range(years_to_retirement + 1):
-            age = current_age + year
-            projection_data.append({
-                'Age': age,
-                'Year': year,
-                'Balance': balance
-            })
-            
-            # Add monthly contributions and growth for next year
-            if year < years_to_retirement:
-                for _ in range(12):
-                    balance = balance * (1 + monthly_return) + monthly_contribution
-        
-        projection_df = pd.DataFrame(projection_data)
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=projection_df['Age'],
-            y=projection_df['Balance'],
-            mode='lines',
-            name='Projected Savings',
-            line=dict(color='#4A9EFF', width=3),
-            fill='tozeroy',
-            fillcolor='rgba(74, 158, 255, 0.1)',
-            textfont=dict(color='#000000')
-        ))
-        
-        # Add target line
-        fig.add_hline(
-            y=required_savings,
-            line_dash="dash",
-            line_color="#000000",
-            annotation_text="Required Amount",
-            annotation_position="right",
-            annotation_font=dict(color='#000000', size=12)
-        )
+        fig = go.Figure(data=[go.Pie(
+            labels=inv_summary['Symbol'],
+            values=inv_summary['Total Invested'],
+            hole=0.5,
+            marker=dict(colors=px.colors.sequential.Greens_r),
+            textposition='auto',
+            textfont=dict(size=13, color='#000000')
+        )])
         
         fig.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
-            font=dict(family='Inter', color='#000000', size=12),
-            xaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Age', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='#F0F0F0',
-                title=dict(text='Savings ($)', font=dict(color='#000000', size=14)),
-                tickfont=dict(color='#000000', size=12),
-                color='#000000'
-            ),
-            hovermode='x unified',
-            height=400,
-            hoverlabel=dict(font=dict(color='#FFFFFF', size=12))
+            font=dict(family='Inter', color='#000000'),
+            showlegend=True,
+            height=400
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### Investment Activity by Month")
         
-        # Recommendations
-        if surplus_deficit < 0:
-            st.markdown('<div class="premium-container">', unsafe_allow_html=True)
-            st.markdown("### 💡 Recommendations")
-            
-            # Calculate required monthly contribution
-            if monthly_return > 0:
-                required_monthly = (required_savings - fv_current) * (monthly_return / ((1 + monthly_return) ** months_to_retirement - 1))
-            else:
-                required_monthly = (required_savings - fv_current) / months_to_retirement
-            
-            additional_needed = required_monthly - monthly_contribution
-            
-            st.markdown(f"""
-            - **Increase monthly contribution** to {format_currency(required_monthly)} (additional {format_currency(additional_needed)}/month)
-            - **Delay retirement** by {int(abs(surplus_deficit) / (monthly_contribution * 12))} years
-            - **Reduce retirement income goal** to {format_currency(retirement_income * (total_at_retirement / required_savings))}/year
-            - **Seek higher returns** (even 1% more can make a significant difference)
-            """)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+        inv_df['Month'] = inv_df['Trade Date'].dt.to_period('M').dt.to_timestamp()
+        monthly_inv = inv_df.groupby('Month')['Total Value'].sum().reset_index()
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=monthly_inv['Month'],
+            y=monthly_inv['Total Value'],
+            marker_color='#4A9EFF',
+            name='Monthly Investment'
+        ))
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(family='Inter', color='#000000'),
+            xaxis=dict(
+                showgrid=False,
+                title='Month',
+                title_font=dict(size=14, color='#000000')
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#E5E5E5',
+                title='Amount Invested ($)',
+                title_font=dict(size=14, color='#000000')
+            ),
+            height=400,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Transaction history
+    st.markdown("### Recent Transactions")
+    
+    recent_inv = inv_df.sort_values('Trade Date', ascending=False).head(20)
+    display_cols = ['Trade Date', 'Symbol', 'Side', 'Units', 'Avg. Price', 'Total Value']
+    recent_inv_display = recent_inv[display_cols].copy()
+    recent_inv_display['Trade Date'] = recent_inv_display['Trade Date'].dt.strftime('%Y-%m-%d')
+    recent_inv_display['Total Value'] = recent_inv_display['Total Value'].apply(format_currency)
+    recent_inv_display['Avg. Price'] = recent_inv_display['Avg. Price'].apply(lambda x: f"${x:.2f}")
+    
+    st.dataframe(recent_inv_display, use_container_width=True, hide_index=True)
+
+def show_employment(parser):
+    """Display employment history page"""
+    st.markdown('<h2 class="section-title">Employment History</h2>', unsafe_allow_html=True)
+    
+    emp_df = parser.parse_employment()
+    
+    if emp_df.empty:
+        st.warning("No employment data available.")
+        return
+    
+    # Calculate total compensation
+    total_comp = emp_df['Total Compensation'].sum()
+    avg_comp = emp_df['Total Compensation'].mean()
+    total_jobs = len(emp_df)
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Total Compensation</div>
+                <div class="metric-value">{format_currency(total_comp)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Total Positions</div>
+                <div class="metric-value">{total_jobs}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Average Compensation</div>
+                <div class="metric-value">{format_currency(avg_comp)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Timeline visualization
+    st.markdown("### Employment Timeline")
+    
+    fig = go.Figure()
+    
+    for idx, row in emp_df.iterrows():
+        fig.add_trace(go.Scatter(
+            x=[row['Date Started'], row['Date Ended']],
+            y=[idx, idx],
+            mode='lines+markers',
+            line=dict(color='#4A9EFF', width=20),
+            marker=dict(size=12, color='#4A9EFF'),
+            name=row['Company'],
+            hovertemplate=f"<b>{row['Company']}</b><br>" +
+                         f"Position: {row['Position']}<br>" +
+                         f"Type: {row['Type']}<br>" +
+                         f"Duration: {row['Duration (months)']:.1f} months<br>" +
+                         f"Compensation: {format_currency(row['Total Compensation'])}<extra></extra>"
+        ))
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(family='Inter', color='#000000'),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#E5E5E5',
+            title='Date',
+            title_font=dict(size=14, color='#000000')
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showticklabels=False,
+            title=''
+        ),
+        height=max(400, len(emp_df) * 80),
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.05)
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Compensation breakdown
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Compensation by Company")
+        
+        fig = go.Figure(data=[go.Bar(
+            x=emp_df['Company'],
+            y=emp_df['Total Compensation'],
+            marker_color='#10B981',
+            text=emp_df['Total Compensation'].apply(format_currency),
+            textposition='outside'
+        )])
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(family='Inter', color='#000000'),
+            xaxis=dict(
+                showgrid=False,
+                title='Company',
+                title_font=dict(size=14, color='#000000')
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#E5E5E5',
+                title='Total Compensation ($)',
+                title_font=dict(size=14, color='#000000')
+            ),
+            height=400,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("### Employment Type Distribution")
+        
+        type_dist = emp_df.groupby('Type')['Total Compensation'].sum().reset_index()
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=type_dist['Type'],
+            values=type_dist['Total Compensation'],
+            hole=0.5,
+            marker=dict(colors=px.colors.sequential.Blues_r),
+            textposition='auto',
+            textfont=dict(size=13, color='#000000')
+        )])
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(family='Inter', color='#000000'),
+            showlegend=True,
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Detailed table
+    st.markdown("### Employment Details")
+    
+    emp_display = emp_df.copy()
+    emp_display['Date Started'] = emp_display['Date Started'].dt.strftime('%Y-%m-%d')
+    emp_display['Date Ended'] = emp_display['Date Ended'].dt.strftime('%Y-%m-%d')
+    emp_display['Duration (months)'] = emp_display['Duration (months)'].round(1)
+    emp_display['Total Compensation'] = emp_display['Total Compensation'].apply(format_currency)
+    
+    display_cols = ['Date Started', 'Date Ended', 'Company', 'Position', 'Type', 'Duration (months)', 'Total Compensation']
+    st.dataframe(emp_display[display_cols], use_container_width=True, hide_index=True)
+
+def show_growth_analysis(parser):
+    """Display growth analysis page"""
+    st.markdown('<h2 class="section-title">Financial Growth Analysis</h2>', unsafe_allow_html=True)
+    
+    # Get all data
+    al_df = parser.parse_assets_liabilities()
+    inv_df = parser.parse_investments()
+    emp_df = parser.parse_employment()
+    
+    # Calculate net worth progression
+    net_worth_data = []
+    for date in sorted(al_df['Date'].unique()):
+        date_data = al_df[al_df['Date'] == date]
+        assets = date_data[date_data['Category'] == 'Asset']['Value'].sum()
+        liabilities = date_data[date_data['Category'] == 'Liability']['Value'].sum()
+        net_worth_data.append({
+            'Date': date,
+            'Net Worth': assets - liabilities
+        })
+    
+    nw_df = pd.DataFrame(net_worth_data)
+    
+    # Calculate annualized growth rate
+    if len(nw_df) > 1:
+        years = (nw_df.iloc[-1]['Date'] - nw_df.iloc[0]['Date']).days / 365.25
+        cagr = (((nw_df.iloc[-1]['Net Worth'] / nw_df.iloc[0]['Net Worth']) ** (1 / years)) - 1) * 100 if years > 0 and nw_df.iloc[0]['Net Worth'] > 0 else 0
+    else:
+        cagr = 0
+    
+    # Display metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">CAGR (Net Worth)</div>
+                <div class="metric-value {'positive' if cagr > 0 else 'negative'}">
+                    {cagr:.1f}%
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        total_invested = inv_df['Total Value'].sum()
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Total Invested</div>
+                <div class="metric-value">{format_currency(total_invested)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        total_earned = emp_df['Total Compensation'].sum()
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Total Earned</div>
+                <div class="metric-value">{format_currency(total_earned)}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Year-over-year comparison
+    st.markdown("### Year-over-Year Net Worth Growth")
+    
+    nw_df['Year'] = nw_df['Date'].dt.year
+    yearly_nw = nw_df.groupby('Year')['Net Worth'].last().reset_index()
+    yearly_nw['YoY Growth'] = yearly_nw['Net Worth'].pct_change() * 100
+    yearly_nw['YoY Change ($)'] = yearly_nw['Net Worth'].diff()
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=yearly_nw['Year'],
+        y=yearly_nw['Net Worth'],
+        name='Net Worth',
+        marker_color='#4A9EFF',
+        yaxis='y',
+        text=yearly_nw['Net Worth'].apply(format_currency),
+        textposition='outside'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=yearly_nw['Year'],
+        y=yearly_nw['YoY Growth'].fillna(0),
+        name='YoY Growth %',
+        line=dict(color='#10B981', width=3),
+        marker=dict(size=10),
+        yaxis='y2'
+    ))
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(family='Inter', color='#000000'),
+        xaxis=dict(
+            showgrid=False,
+            title='Year',
+            title_font=dict(size=14, color='#000000')
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#E5E5E5',
+            title='Net Worth ($)',
+            title_font=dict(size=14, color='#000000')
+        ),
+        yaxis2=dict(
+            title='YoY Growth (%)',
+            title_font=dict(size=14, color='#10B981'),
+            overlaying='y',
+            side='right',
+            showgrid=False
+        ),
+        height=450,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Asset growth breakdown
+    st.markdown("### Asset Category Growth")
+    
+    # Get unique asset types
+    asset_types = al_df[al_df['Category'] == 'Asset']['Type'].unique()
+    
+    # Calculate growth for each asset type
+    asset_growth = []
+    for asset_type in asset_types:
+        asset_data = al_df[(al_df['Category'] == 'Asset') & (al_df['Type'] == asset_type)]
+        if not asset_data.empty:
+            dates = sorted(asset_data['Date'].unique())
+            if len(dates) >= 2:
+                initial_val = asset_data[asset_data['Date'] == dates[0]]['Value'].sum()
+                final_val = asset_data[asset_data['Date'] == dates[-1]]['Value'].sum()
+                growth = final_val - initial_val
+                growth_pct = ((final_val - initial_val) / initial_val * 100) if initial_val > 0 else 0
+                
+                asset_growth.append({
+                    'Asset Type': asset_type,
+                    'Initial Value': initial_val,
+                    'Current Value': final_val,
+                    'Growth ($)': growth,
+                    'Growth (%)': growth_pct
+                })
+    
+    if asset_growth:
+        growth_df = pd.DataFrame(asset_growth).sort_values('Growth ($)', ascending=False)
+        
+        fig = go.Figure()
+        
+        colors = ['#10B981' if x > 0 else '#EF4444' for x in growth_df['Growth ($)']]
+        
+        fig.add_trace(go.Bar(
+            x=growth_df['Asset Type'],
+            y=growth_df['Growth ($)'],
+            marker_color=colors,
+            text=growth_df['Growth (%)'].round(1).astype(str) + '%',
+            textposition='outside'
+        ))
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(family='Inter', color='#000000'),
+            xaxis=dict(
+                showgrid=False,
+                title='Asset Type',
+                title_font=dict(size=14, color='#000000')
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#E5E5E5',
+                title='Growth ($)',
+                title_font=dict(size=14, color='#000000')
+            ),
+            height=400,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
 
 if __name__ == "__main__":
     main()
