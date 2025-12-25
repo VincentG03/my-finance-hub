@@ -366,6 +366,34 @@ class FinanceDataLoader:
         self.load_assets_liabilities(force_reload=True)
         self.load_employment(force_reload=True)
         self.load_investments(force_reload=True)
+    
+    def get_user_info(self) -> Dict[str, any]:
+        """
+        Load user information from Info sheet
+        
+        Returns:
+            Dictionary with keys: full_name, dob, currency
+        """
+        df_info = pd.read_excel(self.excel_path, sheet_name='Info', header=None)
+        
+        # Extract values from the structure
+        info = {}
+        for idx, row in df_info.iterrows():
+            key = str(row[0]).strip()
+            value = row[1]
+            
+            if key == 'Full Name':
+                info['full_name'] = str(value).strip()
+            elif key == 'DOB':
+                # Convert to datetime if it's not already
+                if isinstance(value, str):
+                    info['dob'] = pd.to_datetime(value)
+                else:
+                    info['dob'] = value
+            elif key == 'Currency':
+                info['currency'] = str(value).strip()
+        
+        return info
 
 
 # Convenience function

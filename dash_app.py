@@ -12,11 +12,29 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
+import random
 
 from data_loader import load_data
 
 # Initialize data loader
 data_loader = load_data()
+
+# Load user info
+user_info = data_loader.get_user_info()
+
+# Rotating greeting messages (second part only)
+ROTATING_MESSAGES = [
+    "let's see how you're tracking. 🧐",
+    "time for a wealth check? 💸",
+    "let's look at the gains. 📈",
+    "here is your latest snapshot. 📸",
+    "ready to review the portfolio? 💼",
+    "let's crunch the numbers. 🔢",
+    "ready to see where you stand? 📍",
+    "let's see if the line went up. 🚀",
+    "time for a financial health check. 🩺",
+    "let's take a look at the books. 📚"
+]
 
 # Initialize Dash app
 app = dash.Dash(
@@ -29,6 +47,47 @@ app = dash.Dash(
 
 app.title = "My Finance Hub"
 
+# Add custom CSS for animations
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            @keyframes messagecycle {
+                0% {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                13% {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                87% {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                100% {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # Theme configuration
 THEME = {
     'primaryColor': '#4A9EFF',
@@ -36,6 +95,40 @@ THEME = {
 }
 
 # Utility functions
+def calculate_age_detailed(dob):
+    """Calculate age in years, months, and days from date of birth"""
+    today = datetime.now()
+    
+    # Calculate years
+    years = today.year - dob.year
+    
+    # Calculate months
+    months = today.month - dob.month
+    if months < 0:
+        years -= 1
+        months += 12
+    
+    # Calculate days
+    days = today.day - dob.day
+    if days < 0:
+        months -= 1
+        if months < 0:
+            years -= 1
+            months += 12
+        # Get days in previous month
+        if today.month == 1:
+            prev_month = 12
+            prev_year = today.year - 1
+        else:
+            prev_month = today.month - 1
+            prev_year = today.year
+        
+        from calendar import monthrange
+        days_in_prev_month = monthrange(prev_year, prev_month)[1]
+        days += days_in_prev_month
+    
+    return f"{years} years, {months} months, {days} days"
+
 def format_currency(value):
     """Format number as currency"""
     return f"${value:,.2f}"
@@ -71,6 +164,38 @@ def create_metric_card(label, value, change=None, color='blue'):
         style={"height": "100%"}
     )
 
+def create_animated_greeting():
+    """Create animated greeting component with rotating messages"""
+    first_name = user_info['full_name'].split()[0]
+    
+    return html.Div([
+        # Interval component to trigger message rotation every 3 seconds
+        dcc.Interval(
+            id='greeting-interval',
+            interval=5400,  # 5.4 seconds total (0.7s fade in + 4s visible + 0.7s fade out)
+            n_intervals=0
+        ),
+        # Greeting container
+        html.Div([
+            # First line: "Hey Vincent," (static)
+            html.Div(
+                f"Hey {first_name},",
+                style={
+                    "fontSize": "24px",
+                    "fontWeight": "700",
+                    "color": "#000000",  # Black
+                    "marginBottom": "2px",
+                    "lineHeight": "1.2"
+                }
+            ),
+            # Second line: rotating message container with wrapper for animation
+            html.Div(
+                id="rotating-message-container",
+                style={"minHeight": "40px", "overflow": "visible"}
+            )
+        ], style={"marginBottom": "10px"})
+    ])
+
 # Layout components
 def create_navbar():
     """Create navigation sidebar"""
@@ -82,26 +207,73 @@ def create_navbar():
         {"icon": "📈", "label": "Growth Analysis", "value": "growth"},
     ]
     
+    # Calculate user age
+    age_text = calculate_age_detailed(user_info['dob'])
+    
     nav_links = [
-        dmc.Title("My Finance Hub", order=3, style={"marginBottom": "20px"}),
+        create_animated_greeting(),
         dmc.Divider(),
     ] + [
         dmc.NavLink(
-            label=item["label"],
-            leftSection=dmc.Text(item["icon"], size="lg"),
+            label=html.Span(item["label"], style={"position": "relative", "top": "-3px"}),
+            leftSection=item["icon"],
             id={"type": "nav-link", "index": item["value"]},
-            active=item["value"] == "dashboard",
+            active=False,
             variant="filled",
-            style={"marginBottom": "5px"}
+            style={
+                "marginBottom": "5px", 
+                "fontSize": "26px", 
+                "paddingTop": "16px", 
+                "paddingBottom": "16px",
+                "display": "flex",
+                "alignItems": "center"
+            }
         ) for item in nav_items
     ] + [
         dmc.Divider(style={"marginTop": "auto"}),
-        dmc.Text(
-            f"Last updated: {datetime.now().strftime('%Y-%m-%d')}",
-            size="xs",
-            c="dimmed",
-            ta="center"
-        )
+        dmc.Stack([
+            # User information
+            dmc.Text(
+                f"👤 {user_info['full_name']}",
+                size="xs",
+                fw=500,
+                c="dimmed"
+            ),
+            dmc.Text(
+                f"🎂 Age: {age_text}",
+                size="xs",
+                c="dimmed"
+            ),
+            dmc.Text(
+                f"💱 Currency: {user_info['currency']}",
+                size="xs",
+                c="dimmed"
+            ),
+            dmc.Text(
+                f"📅 Last updated: {datetime.now().strftime('%Y-%m-%d')}",
+                size="xs",
+                c="dimmed"
+            ),
+            dmc.Divider(my="xs"),
+            # Disclaimer
+            dmc.Group([
+                dmc.Text("✓", c="green", size="sm", fw=700),
+                dmc.Stack([
+                    dmc.Text(
+                        "Running locally",
+                        size="xs",
+                        fw=500,
+                        c="dimmed"
+                    ),
+                    dmc.Text(
+                        f"Data: {data_loader.excel_path.split('/')[-1]}",
+                        size="xs",
+                        c="dimmed",
+                        style={"lineHeight": "1.2"}
+                    ),
+                ], gap=2)
+            ], gap="xs", align="flex-start")
+        ], gap="xs")
     ]
     
     return dmc.Stack(
@@ -702,36 +874,65 @@ app.layout = dmc.MantineProvider(
 
 # Callback for navigation
 @callback(
-    Output("page-content", "children"),
+    [Output("page-content", "children"),
+     Output({"type": "nav-link", "index": ALL}, "active")],
     [Input({"type": "nav-link", "index": ALL}, "n_clicks")]
 )
 def update_page(n_clicks):
-    """Update page content based on navigation clicks"""
+    """Update page content and navigation highlighting based on navigation clicks"""
     ctx = dash.callback_context
     
-    if not ctx.triggered:
-        return dashboard_layout()
+    # Determine which page to show
+    current_page = "dashboard"
     
-    # Get which nav link was clicked
-    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    
-    if triggered_id:
-        import json
-        nav_data = json.loads(triggered_id)
-        page = nav_data.get("index", "dashboard")
+    if ctx.triggered:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
         
-        if page == "dashboard":
-            return dashboard_layout()
-        elif page == "net-worth":
-            return networth_layout()
-        elif page == "investments":
-            return investments_layout()
-        elif page == "employment":
-            return employment_layout()
-        elif page == "growth":
-            return growth_layout()
+        if triggered_id and triggered_id != "":
+            import json
+            nav_data = json.loads(triggered_id)
+            current_page = nav_data.get("index", "dashboard")
     
-    return dashboard_layout()
+    # Update active states for all nav links
+    nav_items = ["dashboard", "net-worth", "investments", "employment", "growth"]
+    active_states = [page == current_page for page in nav_items]
+    
+    # Get page content
+    page_content = dashboard_layout()
+    if current_page == "net-worth":
+        page_content = networth_layout()
+    elif current_page == "investments":
+        page_content = investments_layout()
+    elif current_page == "employment":
+        page_content = employment_layout()
+    elif current_page == "growth":
+        page_content = growth_layout()
+    
+    return page_content, active_states
+
+# Callback for rotating greeting message
+@callback(
+    Output("rotating-message-container", "children"),
+    Input("greeting-interval", "n_intervals")
+)
+def update_greeting_message(n_intervals):
+    """Update the rotating greeting message with fade animation"""
+    # Get current message index
+    message_index = n_intervals % len(ROTATING_MESSAGES)
+    current_message = ROTATING_MESSAGES[message_index]
+    
+    # Return a new div with unique key to force re-render and animation
+    return html.Div(
+        current_message,
+        key=f"message-{n_intervals}",  # Unique key forces React to re-render
+        style={
+            "fontSize": "24px",
+            "fontWeight": "700",
+            "color": "#4A9EFF",  # Blue
+            "lineHeight": "1.2",
+            "animation": "messagecycle 5.4s ease-in-out"
+        }
+    )
 
 # Run server
 if __name__ == "__main__":
