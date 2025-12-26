@@ -3,6 +3,13 @@ My Finance Hub - Dash Application
 Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 """
 
+# ============================================================================
+# CONFIGURATION: Set the Excel file to load
+# ============================================================================
+EXCEL_FILE = 'data/vincent_financial_data.xlsx'  # Change this to load a different file
+EXCEL_FILE = 'data/test_financial_data.xlsx'  # Change this to load a different file
+# ============================================================================
+
 import dash
 from dash import dcc, html, Input, Output, callback, ALL
 import dash_mantine_components as dmc
@@ -17,7 +24,7 @@ import random
 from data_loader import load_data
 
 # Initialize data loader
-data_loader = load_data()
+data_loader = load_data(EXCEL_FILE)
 
 # Load user info
 user_info = data_loader.get_user_info()
