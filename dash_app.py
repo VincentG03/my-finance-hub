@@ -1695,40 +1695,60 @@ def calculators_layout():
         dmc.Title("Financial Calculators", order=2, mb="lg"),
         
         # Tax Calculator Section
-        dmc.Title("Tax Calculator (2025-26)", order=3, mb="md"),
+        dmc.Title("Tax & Superannuation Calculator (2025-26)", order=3, mb="md"),
         dmc.Paper([
             dmc.Stack([
-                dmc.Text("Calculate your estimated income tax based on Australian tax rates", c="dimmed", size="sm"),
+                dmc.Text("Calculate your estimated income tax and superannuation based on Australian tax rates.", c="dimmed", size="sm"),
                 
                 dmc.Grid([
                     dmc.GridCol([
                         dmc.NumberInput(
-                            id="tax-salary-input",
-                            label="Annual Taxable Income ($)",
+                            id="tax-base-salary-input",
+                            label="Annual Base Salary ($)",
                             value=default_salary,
                             min=0,
                             step=1000,
                             style={"width": "100%"}
                         ),
-                    ], span=8),
+                    ], span=4),
                     dmc.GridCol([
-                        dmc.Checkbox(
-                            id="medicare-levy-checkbox",
-                            label="Include Medicare Levy (2%)",
-                            checked=True,
-                            mt="lg"
+                        dmc.NumberInput(
+                            id="tax-bonus-input",
+                            label="Bonus ($)",
+                            value=0,
+                            min=0,
+                            step=1000,
+                            style={"width": "100%"}
                         ),
+                    ], span=4),
+                    dmc.GridCol([
+                        html.Div([
+                            dmc.Checkbox(
+                                id="medicare-levy-checkbox",
+                                label="Include Medicare Levy (2%)",
+                                checked=True
+                            )
+                        ], style={"display": "flex", "alignItems": "center", "height": "100%", "paddingTop": "28px"})
                     ], span=4),
                 ]),
                 
                 dmc.Button("Calculate Tax", id="calculate-tax", mt="md"),
                 
                 html.Div(id="tax-results", children=[
-                    dmc.Alert(
-                        "Enter your taxable income and click Calculate to see your tax breakdown",
-                        color="blue",
-                        title="Ready to calculate"
-                    )
+                    dmc.Stack([
+                        dmc.Alert(
+                            "Enter your base salary and click Calculate to see your tax and super breakdown",
+                            color="blue",
+                            title="Ready to calculate"
+                        ),
+                        dmc.Text(
+                            "Last updated 27 Dec 2025 (2025-26 Tax Tables, 12% Super Guarantee)",
+                            c="dimmed",
+                            size="xs",
+                            ta="center",
+                            mt="xs"
+                        )
+                    ], gap="xs")
                 ], style={"marginTop": "20px"})
             ], gap="md")
         ], p="lg", radius="md", withBorder=True, shadow="sm"),
@@ -1739,7 +1759,7 @@ def calculators_layout():
         dmc.Title("True Cost Calculator", order=3, mb="md"),
         dmc.Paper([
             dmc.Stack([
-                dmc.Text("Understand the real cost of your purchases", c="dimmed", size="sm"),
+                dmc.Text("Understand the real cost of your purchases (calculations based on pre-tax income)", c="dimmed", size="sm"),
                 
                 dmc.Grid([
                     dmc.GridCol([
@@ -1756,7 +1776,7 @@ def calculators_layout():
                     dmc.GridCol([
                         dmc.NumberInput(
                             id="salary-input",
-                            label="Annual Salary ($)",
+                            label="Annual Base Salary ($)",
                             value=default_salary,
                             min=0,
                             step=1000,
@@ -1972,21 +1992,47 @@ def update_greeting_message(n_intervals):
 @callback(
     Output("tax-results", "children"),
     [Input("calculate-tax", "n_clicks")],
-    [Input("tax-salary-input", "value"),
+    [Input("tax-base-salary-input", "value"),
+     Input("tax-bonus-input", "value"),
      Input("medicare-levy-checkbox", "checked")]
 )
-def calculate_tax(n_clicks, taxable_income, include_medicare):
-    """Calculate Australian income tax for 2025-26"""
-    if not n_clicks or taxable_income is None or taxable_income == 0:
-        return dmc.Alert(
-            "Enter your taxable income and click Calculate to see your tax breakdown",
-            color="blue",
-            title="Ready to calculate"
-        )
+def calculate_tax(n_clicks, base_salary, bonus, include_medicare):
+    """Calculate Australian income tax and superannuation for 2025-26"""
+    # Combine base salary and bonus
+    total_salary = (base_salary or 0) + (bonus or 0)
     
-    # Australian tax brackets for 2025-26
-    # Based on resident tax rates
-    income = taxable_income
+    if not n_clicks or total_salary == 0:
+        return dmc.Stack([
+            dmc.Alert(
+                "Enter your base salary and click Calculate to see your tax and super breakdown",
+                color="blue",
+                title="Ready to calculate"
+            ),
+            dmc.Text(
+                "Last updated 27 Dec 2025 (2025-26 Tax Tables, 12% Super Guarantee)",
+                c="dimmed",
+                size="xs",
+                ta="center",
+                mt="xs"
+            )
+        ], gap="xs")
+    
+    # Load tax brackets from Excel (dynamically every time)
+    tax_table_df = pd.read_excel('data/25_26_tax.xlsx', sheet_name='Sheet1')
+    
+    # Load Medicare Levy Surcharge thresholds from Excel (dynamically every time)
+    mls_df = pd.read_excel('data/medicare_levy.xlsx', sheet_name='Sheet1', header=1)
+    
+    # Superannuation calculation (12% super guarantee)
+    super_rate = 0.12
+    employer_super = total_salary * super_rate
+    
+    # Super contributions tax (15%)
+    super_tax = employer_super * 0.15
+    after_tax_super = employer_super - super_tax
+    
+    # Australian tax brackets for 2025-26 (on salary only, not super)
+    income = total_salary
     tax = 0
     
     if income <= 18200:
@@ -2000,17 +2046,36 @@ def calculate_tax(n_clicks, taxable_income, include_medicare):
     else:
         tax = 51638 + (income - 190000) * 0.45
     
-    # Medicare levy (2% of taxable income)
+    # Standard Medicare levy (2% of taxable income for everyone)
     medicare_levy = income * 0.02 if include_medicare else 0
     
-    # Total tax
-    total_tax = tax + medicare_levy
+    # Medicare Levy Surcharge (MLS) - additional charge based on income thresholds
+    # Only applies if income is above the base tier
+    mls_rate = 0
+    mls_tier = "Base tier (No surcharge)"
+    if income > 158000:
+        mls_rate = 0.015
+        mls_tier = "Tier 3"
+    elif income > 118000:
+        mls_rate = 0.0125
+        mls_tier = "Tier 2"
+    elif income > 101000:
+        mls_rate = 0.01
+        mls_tier = "Tier 1"
+    
+    medicare_levy_surcharge = income * mls_rate if include_medicare else 0
+    
+    # Total Medicare costs
+    total_medicare = medicare_levy + medicare_levy_surcharge
+    
+    # Total tax on salary
+    total_salary_tax = tax + total_medicare
     
     # After-tax income
-    after_tax_income = income - total_tax
+    after_tax_income = income - total_salary_tax
     
     # Effective tax rate
-    effective_rate = (total_tax / income * 100) if income > 0 else 0
+    effective_rate = (total_salary_tax / income * 100) if income > 0 else 0
     
     # Marginal tax rate
     if income <= 18200:
@@ -2027,48 +2092,536 @@ def calculate_tax(n_clicks, taxable_income, include_medicare):
     # Add Medicare levy to marginal rate if included
     if include_medicare:
         marginal_rate += 2
+        if mls_rate > 0:
+            marginal_rate += (mls_rate * 100)
     
     return dmc.Stack([
+        # Salary Row
+        dmc.Title("Salary Breakdown", order=4, size="sm", mb="sm"),
         dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Gross Salary",
+                    format_currency(income),
+                    "Base + bonuses",
+                    change_color_override="blue"
+                ),
+                span=3
+            ),
             dmc.GridCol(
                 create_metric_card(
                     "Income Tax",
                     format_currency(tax),
-                    f"Based on {format_currency(income)} income"
+                    f"Marginal rate: {marginal_rate - (2 if include_medicare else 0) - (mls_rate * 100 if include_medicare else 0):.0f}%",
+                    change_color_override="blue"
                 ),
-                span=3
+                span=2
             ),
             dmc.GridCol(
                 create_metric_card(
                     "Medicare Levy",
-                    format_currency(medicare_levy),
-                    "2% of taxable income" if include_medicare else "Not included"
+                    format_currency(total_medicare),
+                    f"2% + {mls_rate*100:.2f}% surcharge" if include_medicare and mls_rate > 0 else ("2%" if include_medicare else "Not included"),
+                    change_color_override="blue"
                 ),
-                span=3
+                span=2
             ),
             dmc.GridCol(
                 create_metric_card(
                     "Total Tax",
-                    format_currency(total_tax),
-                    f"Effective rate: {effective_rate:.1f}%"
+                    format_currency(total_salary_tax),
+                    f"Effective: {effective_rate:.1f}%",
+                    change_color_override="blue"
+                ),
+                span=2
+            ),
+            dmc.GridCol(
+                dmc.Paper(
+                    children=[
+                        dmc.Stack(
+                            children=[
+                                dmc.Text("After-Tax Income", size="sm", fw=500, c="dimmed", tt="uppercase"),
+                                dmc.Text(format_currency(after_tax_income), size="xl", fw=700, style={"fontSize": "32px"}),
+                                dmc.Text(
+                                    f"Take home: {(after_tax_income/income*100):.1f}%",
+                                    size="sm",
+                                    fw=500,
+                                    c="blue"
+                                )
+                            ],
+                            gap="xs"
+                        )
+                    ],
+                    p="lg",
+                    radius="md",
+                    withBorder=True,
+                    shadow="xl",
+                    style={
+                        "height": "100%",
+                        "boxShadow": "0 0 20px rgba(74, 158, 255, 0.3)",
+                        "border": "2px solid #4A9EFF"
+                    }
+                ),
+                span=3
+            ),
+        ], gutter="md"),
+        
+        # Superannuation Row
+        dmc.Title("Superannuation Breakdown", order=4, size="sm", mb="sm", mt="lg"),
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Employer Contribution",
+                    format_currency(employer_super),
+                    f"12% of {format_currency(income)}",
+                    change_color_override="blue"
                 ),
                 span=3
             ),
             dmc.GridCol(
                 create_metric_card(
-                    "After-Tax Income",
-                    format_currency(after_tax_income),
-                    f"Marginal rate: {marginal_rate}%"
+                    "Super Contributions Tax",
+                    format_currency(super_tax),
+                    "15% of contribution",
+                    change_color_override="blue"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                dmc.Paper(
+                    children=[
+                        dmc.Stack(
+                            children=[
+                                dmc.Text("After-Tax Super", size="sm", fw=500, c="dimmed", tt="uppercase"),
+                                dmc.Text(format_currency(after_tax_super), size="xl", fw=700, style={"fontSize": "32px"}),
+                                dmc.Text(
+                                    f"Net: {(after_tax_super/employer_super*100):.1f}%",
+                                    size="sm",
+                                    fw=500,
+                                    c="blue"
+                                )
+                            ],
+                            gap="xs"
+                        )
+                    ],
+                    p="lg",
+                    radius="md",
+                    withBorder=True,
+                    shadow="xl",
+                    style={
+                        "height": "100%",
+                        "boxShadow": "0 0 20px rgba(74, 158, 255, 0.3)",
+                        "border": "2px solid #4A9EFF"
+                    }
                 ),
                 span=3
             ),
         ], gutter="md"),
-        dmc.Alert(
-            f"Your marginal tax rate is {marginal_rate}%, meaning each additional dollar earned is taxed at this rate. Your effective tax rate (total tax / income) is {effective_rate:.1f}%.",
-            title="Tax Breakdown",
-            color="blue",
-            mt="md"
-        )
+        
+        # Tax Tables Accordion
+        dmc.Accordion(
+            children=[
+                dmc.AccordionItem(
+                    children=[
+                        dmc.AccordionControl("View Tax Tables"),
+                        dmc.AccordionPanel([
+                            dmc.Title("2025-26 Resident Tax Rates", order=4, size="md", mb="sm", mt="sm"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Taxable Income"),
+                                        dmc.TableTh("Tax on This Income"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("$0 – $18,200"),
+                                        dmc.TableTd("Nil"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$18,201 – $45,000"),
+                                        dmc.TableTd("16c for each $1 over $18,200"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$45,001 – $135,000"),
+                                        dmc.TableTd("$4,288 plus 30c for each $1 over $45,000"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$135,001 – $190,000"),
+                                        dmc.TableTd("$31,288 plus 37c for each $1 over $135,000"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$190,001 and over"),
+                                        dmc.TableTd("$51,638 plus 45c for each $1 over $190,000"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                            
+                            dmc.Title("Medicare Levy & Surcharge", order=4, size="md", mb="sm", mt="lg"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Income Threshold"),
+                                        dmc.TableTh("Medicare Levy"),
+                                        dmc.TableTh("Surcharge Rate"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("All incomes"),
+                                        dmc.TableTd("2%"),
+                                        dmc.TableTd("-"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$101,000 or less"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("0% (No surcharge)"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$101,001 – $118,000"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.0%"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$118,001 – $158,000"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.25%"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$158,001 or more"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.5%"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                            
+                            dmc.Title("Superannuation", order=4, size="md", mb="sm", mt="lg"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Item"),
+                                        dmc.TableTh("Rate"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("Superannuation Guarantee"),
+                                        dmc.TableTd("12% of ordinary time earnings"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("Super Contributions Tax"),
+                                        dmc.TableTd("15% of concessional contributions"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                        ])
+                    ],
+                    value="tax-tables"
+                )
+            ],
+            mt="lg"
+        ),
+    ], gap="md")
+    
+    # Superannuation calculation (12% super guarantee)
+    super_rate = 0.12
+    employer_super = base_salary * super_rate
+    
+    # Super contributions tax (15%)
+    super_tax = employer_super * 0.15
+    after_tax_super = employer_super - super_tax
+    
+    # Australian tax brackets for 2025-26 (on salary only, not super)
+    income = base_salary
+    tax = 0
+    
+    if income <= 18200:
+        tax = 0
+    elif income <= 45000:
+        tax = (income - 18200) * 0.16
+    elif income <= 135000:
+        tax = 4288 + (income - 45000) * 0.30
+    elif income <= 190000:
+        tax = 31288 + (income - 135000) * 0.37
+    else:
+        tax = 51638 + (income - 190000) * 0.45
+    
+    # Standard Medicare levy (2% of taxable income for everyone above threshold)
+    # The standard Medicare levy is 2% for most people
+    medicare_levy = income * 0.02 if include_medicare else 0
+    
+    # Medicare Levy Surcharge (MLS) - additional charge based on income thresholds
+    # Only applies if income is above the base tier
+    mls_rate = 0
+    mls_tier = "Base tier (No surcharge)"
+    if income > 158000:
+        mls_rate = 0.015
+        mls_tier = "Tier 3"
+    elif income > 118000:
+        mls_rate = 0.0125
+        mls_tier = "Tier 2"
+    elif income > 101000:
+        mls_rate = 0.01
+        mls_tier = "Tier 1"
+    
+    medicare_levy_surcharge = income * mls_rate if include_medicare else 0
+    
+    # Total Medicare costs
+    total_medicare = medicare_levy + medicare_levy_surcharge
+    
+    # Total tax on salary
+    total_salary_tax = tax + total_medicare
+    
+    # After-tax income
+    after_tax_income = income - total_salary_tax
+    
+    # Effective tax rate
+    effective_rate = (total_salary_tax / income * 100) if income > 0 else 0
+    
+    # Marginal tax rate
+    if income <= 18200:
+        marginal_rate = 0
+    elif income <= 45000:
+        marginal_rate = 16
+    elif income <= 135000:
+        marginal_rate = 30
+    elif income <= 190000:
+        marginal_rate = 37
+    else:
+        marginal_rate = 45
+    
+    # Add Medicare levy to marginal rate if included
+    if include_medicare:
+        marginal_rate += 2
+        if mls_rate > 0:
+            marginal_rate += (mls_rate * 100)
+    
+    return dmc.Stack([
+        # Salary Row
+        dmc.Title("Salary Breakdown", order=4, size="sm", mb="sm"),
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Gross Salary",
+                    format_currency(income),
+                    "Base + bonuses",
+                    change_color_override="blue"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Income Tax",
+                    format_currency(tax),
+                    f"Marginal rate: {marginal_rate - (2 if include_medicare else 0) - (mls_rate * 100 if include_medicare else 0):.0f}%",
+                    change_color_override="blue"
+                ),
+                span=2
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Medicare Levy",
+                    format_currency(total_medicare),
+                    f"2% + {mls_rate*100:.2f}% surcharge" if include_medicare and mls_rate > 0 else ("2%" if include_medicare else "Not included"),
+                    change_color_override="blue"
+                ),
+                span=2
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Total Tax",
+                    format_currency(total_salary_tax),
+                    f"Effective: {effective_rate:.1f}%",
+                    change_color_override="blue"
+                ),
+                span=2
+            ),
+            dmc.GridCol(
+                dmc.Paper(
+                    children=[
+                        dmc.Stack(
+                            children=[
+                                dmc.Text("After-Tax Income", size="sm", fw=500, c="dimmed", tt="uppercase"),
+                                dmc.Text(format_currency(after_tax_income), size="xl", fw=700, style={"fontSize": "32px"}),
+                                dmc.Text(
+                                    f"Take home: {(after_tax_income/income*100):.1f}%",
+                                    size="sm",
+                                    fw=500,
+                                    c="blue"
+                                )
+                            ],
+                            gap="xs"
+                        )
+                    ],
+                    p="lg",
+                    radius="md",
+                    withBorder=True,
+                    shadow="xl",
+                    style={
+                        "height": "100%",
+                        "boxShadow": "0 0 20px rgba(74, 158, 255, 0.3)",
+                        "border": "2px solid #4A9EFF"
+                    }
+                ),
+                span=3
+            ),
+        ], gutter="md"),
+        
+        # Superannuation Row
+        dmc.Title("Superannuation Breakdown", order=4, size="sm", mb="sm", mt="lg"),
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Employer Contribution",
+                    format_currency(employer_super),
+                    f"12% of {format_currency(income)}",
+                    change_color_override="blue"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Super Contributions Tax",
+                    format_currency(super_tax),
+                    "15% of contribution",
+                    change_color_override="blue"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                dmc.Paper(
+                    children=[
+                        dmc.Stack(
+                            children=[
+                                dmc.Text("After-Tax Super", size="sm", fw=500, c="dimmed", tt="uppercase"),
+                                dmc.Text(format_currency(after_tax_super), size="xl", fw=700, style={"fontSize": "32px"}),
+                                dmc.Text(
+                                    f"Net: {(after_tax_super/employer_super*100):.1f}%",
+                                    size="sm",
+                                    fw=500,
+                                    c="blue"
+                                )
+                            ],
+                            gap="xs"
+                        )
+                    ],
+                    p="lg",
+                    radius="md",
+                    withBorder=True,
+                    shadow="xl",
+                    style={
+                        "height": "100%",
+                        "boxShadow": "0 0 20px rgba(74, 158, 255, 0.3)",
+                        "border": "2px solid #4A9EFF"
+                    }
+                ),
+                span=3
+            ),
+        ], gutter="md"),
+        
+        # Tax Tables Accordion
+        dmc.Accordion(
+            children=[
+                dmc.AccordionItem(
+                    children=[
+                        dmc.AccordionControl("View Tax Tables"),
+                        dmc.AccordionPanel([
+                            dmc.Title("2025-26 Resident Tax Rates", order=4, size="md", mb="sm", mt="sm"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Taxable Income"),
+                                        dmc.TableTh("Tax on This Income"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("$0 – $18,200"),
+                                        dmc.TableTd("Nil"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$18,201 – $45,000"),
+                                        dmc.TableTd("16c for each $1 over $18,200"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$45,001 – $135,000"),
+                                        dmc.TableTd("$4,288 plus 30c for each $1 over $45,000"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$135,001 – $190,000"),
+                                        dmc.TableTd("$31,288 plus 37c for each $1 over $135,000"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$190,001 and over"),
+                                        dmc.TableTd("$51,638 plus 45c for each $1 over $190,000"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                            
+                            dmc.Title("Medicare Levy & Surcharge", order=4, size="md", mb="sm", mt="lg"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Income Threshold"),
+                                        dmc.TableTh("Medicare Levy"),
+                                        dmc.TableTh("Surcharge Rate"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("All incomes"),
+                                        dmc.TableTd("2%"),
+                                        dmc.TableTd("-"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$101,000 or less"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("0% (No surcharge)"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$101,001 – $118,000"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.0%"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$118,001 – $158,000"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.25%"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("$158,001 or more"),
+                                        dmc.TableTd("-"),
+                                        dmc.TableTd("1.5%"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                            
+                            dmc.Title("Superannuation", order=4, size="md", mb="sm", mt="lg"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Item"),
+                                        dmc.TableTh("Rate"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd("Superannuation Guarantee"),
+                                        dmc.TableTd("12% of ordinary time earnings"),
+                                    ]),
+                                    dmc.TableTr([
+                                        dmc.TableTd("Super Contributions Tax"),
+                                        dmc.TableTd("15% of concessional contributions"),
+                                    ]),
+                                ])
+                            ], striped=True),
+                        ])
+                    ],
+                    value="tax-tables"
+                )
+            ],
+            mt="lg"
+        ),
     ], gap="md")
 
 # Callback for True Cost Calculator
@@ -2080,16 +2633,21 @@ def calculate_tax(n_clicks, taxable_income, include_medicare):
 )
 def calculate_true_cost(n_clicks, purchase_price, salary):
     """Calculate and display true cost metrics"""
-    if not n_clicks or purchase_price is None or purchase_price == 0:
+    if not n_clicks or purchase_price is None or purchase_price == 0 or salary is None or salary == 0:
         return dmc.Alert(
             "Enter a purchase price and click Calculate to see the true cost analysis",
             color="blue",
             title="Ready to analyze"
         )
     
+    # Convert to float if needed
+    purchase_price = float(purchase_price)
+    salary = float(salary)
+    
     # Calculate metrics
     hourly_rate = salary / 2080  # 40 hours/week * 52 weeks
     hours_of_work = purchase_price / hourly_rate
+    days_of_work = int(hours_of_work / 8 * 10) / 10  # 8 hours per day, round down to 1 decimal
     
     # Opportunity cost (7% annual return over 30 years)
     years = 30
@@ -2097,38 +2655,16 @@ def calculate_true_cost(n_clicks, purchase_price, salary):
     future_value = purchase_price * ((1 + return_rate) ** years)
     opportunity_cost = future_value - purchase_price
     
-    # Monthly payment equivalent (if financed at 5% over 3 years)
-    months = 36
-    interest_rate = 0.05 / 12
-    if interest_rate > 0:
-        monthly_payment = purchase_price * (interest_rate * (1 + interest_rate)**months) / ((1 + interest_rate)**months - 1)
-    else:
-        monthly_payment = purchase_price / months
-    
-    # Days of expenses
-    daily_expenses = salary / 365 * 0.7  # Assuming 70% of salary goes to expenses
-    days_of_expenses = purchase_price / daily_expenses if daily_expenses > 0 else 0
-    
     return dmc.Stack([
         dmc.Alert(
-            f"To afford this {format_currency(purchase_price)} purchase, you'll need to work {hours_of_work:.1f} hours",
-            title="Labour Hours Required",
+            f"To afford this {format_currency(purchase_price)} purchase, you'll need to work {hours_of_work:.1f} hours or {days_of_work:.1f} days",
+            title="Labour Required",
             color="blue"
         ),
         dmc.Alert(
             f"If invested instead, this money would grow to {format_currency(future_value)} in {years} years (at 7% return). That's {format_currency(opportunity_cost)} in missed growth!",
             title="Opportunity Cost",
             color="yellow"
-        ),
-        dmc.Alert(
-            f"If financed over 3 years at 5% interest, you'd pay {format_currency(monthly_payment)} per month",
-            title="Monthly Payment",
-            color="grape"
-        ),
-        dmc.Alert(
-            f"This purchase equals {days_of_expenses:.0f} days of your living expenses",
-            title="Days of Expenses",
-            color="teal"
         ),
         dmc.Grid([
             dmc.GridCol(
