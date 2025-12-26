@@ -350,7 +350,8 @@ def dashboard_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -377,7 +378,8 @@ def dashboard_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -404,7 +406,8 @@ def dashboard_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -437,7 +440,8 @@ def dashboard_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -472,7 +476,8 @@ def dashboard_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -710,7 +715,7 @@ def investments_layout():
         marker=dict(size=8, color='#60a5fa'),
         fill='tozeroy',
         fillcolor='rgba(96, 165, 250, 0.3)',
-        hovertemplate='<b>Market Value</b><br>%{x}<br>$%{y:,.2f}<extra></extra>'
+        hoverinfo='skip'
     ))
     
     # If cost basis is more recent, extend market value with dotted line AND shading
@@ -724,7 +729,7 @@ def investments_layout():
             fill='tozeroy',
             fillcolor='rgba(96, 165, 250, 0.3)',
             showlegend=False,
-            hovertemplate='<b>Market Value (estimated)</b><br>%{x}<br>$%{y:,.2f}<extra></extra>'
+            hoverinfo='skip'
         ))
     
     # Cost basis - solid line (dark blue with shading) - ADD SECOND so it overlaps on top
@@ -740,7 +745,7 @@ def investments_layout():
         marker=dict(size=7, color='#1e40af'),
         fill='tozeroy',
         fillcolor='rgba(30, 64, 175, 0.2)',
-        hovertemplate='<b>Cost Basis</b><br>%{x}<br>$%{y:,.2f}<extra></extra>'
+        hoverinfo='skip'
     ))
     
     # If market value is more recent, extend cost basis with dotted line AND shading
@@ -754,7 +759,7 @@ def investments_layout():
             fill='tozeroy',
             fillcolor='rgba(30, 64, 175, 0.2)',
             showlegend=False,
-            hovertemplate='<b>Cost Basis (estimated)</b><br>%{x}<br>$%{y:,.2f}<extra></extra>'
+            hoverinfo='skip'
         ))
     
     # Add invisible trace with interpolated values for hover
@@ -767,12 +772,12 @@ def investments_layout():
     # Create custom hover text
     hover_texts = []
     for idx, row in interpolated_df.iterrows():
-        text = f"<b>{row['Date'].strftime('%Y-%m-%d')}</b><br>"
-        text += f"Cost Basis: ${row['Cost Basis']:,.2f}<br>"
+        text = ""
         if pd.notna(row['Market Value']):
-            text += f"Market Value: ${row['Market Value']:,.2f}"
+            text += f"<span style='color:#60a5fa;'>⬤</span>Market Value: ${row['Market Value']:,.2f}<br>"
         else:
-            text += "Market Value: N/A"
+            text += "<span style='color:#60a5fa;'>⬤</span>Market Value: N/A<br>"
+        text += f"<span style='color:#1e40af;'>⬤</span>Cost Basis: ${row['Cost Basis']:,.2f}"
         hover_texts.append(text)
     
     fig_cumulative.add_trace(go.Scatter(
@@ -803,7 +808,8 @@ def investments_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -828,7 +834,8 @@ def investments_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -856,7 +863,131 @@ def investments_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
+        )
+    )
+    
+    # Performance by ticker (% gain/loss)
+    ticker_performance = []
+    for ticker in inv_summary['Symbol']:
+        ticker_cost = inv_summary[inv_summary['Symbol'] == ticker]['Total Invested'].iloc[0]
+        # Get current value from latest stock data
+        ticker_current = stock_data[stock_data['Type'].str.contains(ticker, na=False)]['Value'].sum()
+        if ticker_cost > 0:
+            pct_change = ((ticker_current / ticker_cost) - 1) * 100
+        else:
+            pct_change = 0
+        ticker_performance.append({'Symbol': ticker, 'Performance': pct_change, 'Current Value': ticker_current})
+    
+    perf_df = pd.DataFrame(ticker_performance).sort_values('Performance', ascending=True)
+    
+    # Color code: green for positive, red for negative
+    bar_colors = ['#10B981' if x >= 0 else '#EF4444' for x in perf_df['Performance']]
+    
+    fig_performance = go.Figure(data=[go.Bar(
+        x=perf_df['Performance'],
+        y=perf_df['Symbol'],
+        orientation='h',
+        marker_color=bar_colors,
+        text=[f"{x:+.1f}%" for x in perf_df['Performance']],
+        textposition='outside',
+        hovertemplate='<b>%{y}</b><br>Performance: %{x:.2f}%<extra></extra>'
+    )])
+    
+    fig_performance.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        xaxis_title='Performance (%)',
+        yaxis_title='',
+        height=400,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black',
+            namelength=0
+        )
+    )
+    
+    fig_allocation.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        height=400,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black',
+            namelength=0
+        )
+    )
+    
+    # Monthly activity
+    inv_df['Month'] = inv_df['Trade Date'].dt.to_period('M').dt.to_timestamp()
+    monthly_inv = inv_df.groupby('Month')['Total Value'].sum().reset_index()
+    
+    fig_monthly = go.Figure()
+    fig_monthly.add_trace(go.Bar(
+        x=monthly_inv['Month'],
+        y=monthly_inv['Total Value'],
+        marker_color='#4A9EFF',
+        hovertemplate='<b>%{x}</b><br>Amount: $%{y:,.2f}<extra></extra>'
+    ))
+    
+    fig_monthly.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        xaxis_title='Month',
+        yaxis_title='Amount Invested ($)',
+        height=400,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black',
+            namelength=0
+        )
+    )
+    
+    # Investment frequency (number of purchase transactions per ticker)
+    transaction_counts = inv_df[inv_df['Side'] == 'Buy'].groupby('Symbol').size().reset_index(name='Transactions')
+    transaction_counts = transaction_counts.sort_values('Transactions', ascending=True)
+    
+    # Create a blue gradient for the bars
+    ticker_colors = ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
+    bar_colors_ticker = [ticker_colors[i % len(ticker_colors)] for i in range(len(transaction_counts))]
+    
+    fig_performance = go.Figure(data=[go.Bar(
+        x=transaction_counts['Transactions'],
+        y=transaction_counts['Symbol'],
+        orientation='h',
+        marker_color=bar_colors_ticker,
+        text=transaction_counts['Transactions'],
+        textposition='outside',
+        hovertemplate='<b>%{y}</b><br>Transactions: %{x}<extra></extra>'
+    )])
+    
+    fig_performance.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        xaxis_title='Number of Transactions',
+        yaxis_title='',
+        height=400,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -894,7 +1025,7 @@ def investments_layout():
         
         dmc.Divider(my="xl"),
         
-        # Cumulative
+        # Stock Market Investments - Full Width
         dmc.Title("Stock Market Investments", order=3, mb="md"),
         dmc.Paper(
             dcc.Graph(figure=fig_cumulative, config={'displayModeBar': False}),
@@ -903,7 +1034,16 @@ def investments_layout():
             withBorder=True
         ),
         
-        # Charts row
+        # Investment Activity by Month - Full Width
+        dmc.Title("Investment Activity by Month", order=3, mb="md", mt="xl"),
+        dmc.Paper(
+            dcc.Graph(figure=fig_monthly, config={'displayModeBar': False}),
+            p="md",
+            radius="md",
+            withBorder=True
+        ),
+        
+        # Charts row - Portfolio Allocation and Performance
         dmc.Grid([
             dmc.GridCol([
                 dmc.Title("Portfolio Allocation", order=3, mb="md"),
@@ -915,9 +1055,9 @@ def investments_layout():
                 )
             ], span=6),
             dmc.GridCol([
-                dmc.Title("Investment Activity by Month", order=3, mb="md"),
+                dmc.Title("Investment Frequency", order=3, mb="md"),
                 dmc.Paper(
-                    dcc.Graph(figure=fig_monthly, config={'displayModeBar': False}),
+                    dcc.Graph(figure=fig_performance, config={'displayModeBar': False}),
                     p="md",
                     radius="md",
                     withBorder=True
@@ -1006,7 +1146,7 @@ def employment_layout():
         if super_amount > 0:
             hover_text += f"Super: ${super_amount:,.2f}<br>"
         hover_text += f"Total: ${row['Total Compensation']:,.2f}/year<br>"
-        hover_text += f"Duration: {row['Duration (months)']:.1f} months<extra></extra>"
+        hover_text += f"Duration: {row['Duration (months)']:.1f} months"
         
         fig_timeline.add_trace(go.Scatter(
             x=[row['Date Started'], row['Date Ended'] if pd.notna(row['Date Ended']) else pd.Timestamp.now()],
@@ -1033,7 +1173,8 @@ def employment_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
@@ -1071,7 +1212,8 @@ def employment_layout():
             font_size=13,
             font_family='Inter, sans-serif',
             font_color='black',
-            bordercolor='black'
+            bordercolor='black',
+            namelength=0
         )
     )
     
