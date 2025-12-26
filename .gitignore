@@ -12,5 +12,6 @@ build/
 *.swo
 *~
 # Exclude all xlsx files except test data
-*.xlsx
-!user_data/test_financial_data.xlsx
+# Ignore Excel files in user_data except the test file
+/user_data/*.xlsx
+!/user_data/test_financial_data.xlsx
