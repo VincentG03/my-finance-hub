@@ -630,31 +630,6 @@ def investments_layout():
     stock_timeseries = stock_values_over_time.groupby('Date')['Value'].sum().reset_index()
     stock_timeseries.columns = ['Date', 'Stock Value']
     
-    # Add hardcoded market value data points - ONLY for specific Excel files
-    hardcoded_market_values = pd.DataFrame()
-    
-    if EXCEL_FILE == 'data/vincent_financial_data.xlsx':
-        # Vincent's hardcoded market values
-        hardcoded_market_values = pd.DataFrame([
-            {'Date': pd.Timestamp('2022-10-28'), 'Stock Value': 5400},
-            {'Date': pd.Timestamp('2022-11-03'), 'Stock Value': 12500},
-            {'Date': pd.Timestamp('2023-02-22'), 'Stock Value': 18000},
-            {'Date': pd.Timestamp('2023-06-27'), 'Stock Value': 21000},
-        ])
-    elif EXCEL_FILE == 'data/test_financial_data.xlsx':
-        # Test data hardcoded market values
-        hardcoded_market_values = pd.DataFrame([
-            {'Date': pd.Timestamp('2022-10-27'), 'Stock Value': 0},
-            {'Date': pd.Timestamp('2022-11-03'), 'Stock Value': 22510},
-            {'Date': pd.Timestamp('2023-02-22'), 'Stock Value': 25560},
-            {'Date': pd.Timestamp('2023-06-27'), 'Stock Value': 31510},
-        ])
-    # For any other Excel file, hardcoded_market_values remains empty
-    
-    # Combine hardcoded and actual market values, remove duplicates
-    if not hardcoded_market_values.empty:
-        stock_timeseries = pd.concat([stock_timeseries, hardcoded_market_values]).drop_duplicates(subset=['Date']).sort_values('Date').reset_index(drop=True)
-    
     # Ensure Date column is datetime
     stock_timeseries['Date'] = pd.to_datetime(stock_timeseries['Date'])
     inv_df_sorted['Trade Date'] = pd.to_datetime(inv_df_sorted['Trade Date'])
