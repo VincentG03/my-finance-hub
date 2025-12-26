@@ -6,7 +6,8 @@ Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 # ============================================================================
 # CONFIGURATION: Set the Excel file to load
 # ============================================================================
-EXCEL_FILE = 'data/test_financial_data.xlsx'  # Change this to load a different file
+EXCEL_FILE = 'data/vincent_financial_data.xlsx'  
+#EXCEL_FILE = 'data/test_financial_data.xlsx'  # Change this to load a different file
 # ============================================================================
 
 import dash
@@ -227,6 +228,8 @@ def create_navbar():
         {"icon": "💰", "label": "Net Worth", "value": "dashboard"},
         {"icon": "📈", "label": "Investments", "value": "investments"},
         {"icon": "👔", "label": "Employment", "value": "employment"},
+        {"icon": "📊", "label": "Benchmarking", "value": "benchmarking"},
+        {"icon": "🧮", "label": "Calculators", "value": "calculators"},
     ]
     
     # Calculate user age
@@ -1011,14 +1014,71 @@ def investments_layout():
         )
     )
     
-    # Create Total Value card with glow effect
+    # Calculate previous quarter values for comparison
+    # Get second-to-last date from stock_timeseries (represents previous quarter)
+    if len(stock_timeseries) >= 2:
+        prev_quarter_date = stock_timeseries.iloc[-2]['Date']
+        
+        # Get market value at previous quarter
+        prev_quarter_mv = stock_timeseries.iloc[-2]['Stock Value']
+        
+        # Get cost basis at previous quarter using interpolation
+        cb_dates = list(inv_df_sorted['Trade Date'])
+        cb_values = list(inv_df_sorted['Cumulative Cost Basis'])
+        
+        if prev_quarter_date in cb_dates:
+            prev_quarter_cb = inv_df_sorted[inv_df_sorted['Trade Date'] == prev_quarter_date]['Cumulative Cost Basis'].iloc[0]
+        elif prev_quarter_date < cb_dates[0]:
+            prev_quarter_cb = 0
+        elif prev_quarter_date > cb_dates[-1]:
+            prev_quarter_cb = cb_values[-1]
+        else:
+            # Linear interpolation
+            prev_quarter_cb = cb_values[-1]
+            for i in range(len(cb_dates) - 1):
+                if cb_dates[i] <= prev_quarter_date <= cb_dates[i+1]:
+                    prev_quarter_cb = linear_interpolate(
+                        prev_quarter_date.timestamp(),
+                        cb_dates[i].timestamp(), cb_values[i],
+                        cb_dates[i+1].timestamp(), cb_values[i+1]
+                    )
+                    break
+        
+        # Format previous quarter name as month abbreviation
+        prev_quarter_name = prev_quarter_date.strftime("%b %Y")
+        
+        # Calculate changes
+        mv_change = total_value - prev_quarter_mv
+        cb_change = cost_basis - prev_quarter_cb
+        
+        # Format change text
+        mv_change_text = f"{'↑' if mv_change >= 0 else '↓'} {format_currency(abs(mv_change))} vs {prev_quarter_name}"
+        cb_change_text = f"{'↑' if cb_change >= 0 else '↓'} {format_currency(abs(cb_change))} vs {prev_quarter_name}"
+    else:
+        mv_change_text = None
+        cb_change_text = None
+    
+    # Calculate dollar increase and percentage
+    dollar_increase = total_value - cost_basis
+    pct_increase_text = f"{'↑' if pct_increase >= 0 else '↓'} {abs(pct_increase):.1f}% vs inception"
+    
+    # Create Total Value card with glow effect and change text
+    total_value_children = [
+        dmc.Text("Total Value", size="sm", fw=500, c="dimmed", tt="uppercase"),
+        dmc.Text(format_currency(total_value), size="xl", fw=700, style={"fontSize": "32px"}),
+    ]
+    
+    # Add change text if available
+    if mv_change_text:
+        change_color = "green" if mv_change >= 0 else "red"
+        total_value_children.append(
+            dmc.Text(mv_change_text, size="sm", fw=500, c=change_color)
+        )
+    
     total_value_card = dmc.Paper(
         children=[
             dmc.Stack(
-                children=[
-                    dmc.Text("Total Value", size="sm", fw=500, c="dimmed", tt="uppercase"),
-                    dmc.Text(format_currency(total_value), size="xl", fw=700, style={"fontSize": "32px"}),
-                ],
+                children=total_value_children,
                 gap="xs"
             )
         ],
@@ -1038,9 +1098,9 @@ def investments_layout():
         
         # Metrics
         dmc.Grid([
-            dmc.GridCol(create_metric_card("Cost Basis", format_currency(cost_basis)), span=4),
+            dmc.GridCol(create_metric_card("Cost Basis", format_currency(cost_basis), change=cb_change_text), span=4),
             dmc.GridCol(total_value_card, span=4),
-            dmc.GridCol(create_metric_card("Total % Increase", f"{pct_increase:.1f}%"), span=4),
+            dmc.GridCol(create_metric_card("Total Increase", format_currency(dollar_increase), change=pct_increase_text), span=4),
         ], gutter="lg"),
         
         dmc.Divider(my="xl"),
@@ -1290,6 +1350,302 @@ def employment_layout():
     ], gap="lg")
 
 
+def benchmarking_layout():
+    """Benchmarking page comparing user's metrics to population"""
+    # Get latest metrics
+    latest_metrics = data_loader.get_latest_metrics()
+    emp_df = data_loader.load_employment()
+    
+    # Get most recent job
+    if not emp_df.empty:
+        emp_df_sorted = emp_df.sort_values('Date Started', ascending=False)
+        latest_job = emp_df_sorted.iloc[0]
+        job_title = latest_job.get('Position', 'N/A')
+        company = latest_job.get('Company', 'N/A')
+        salary = latest_job.get('Total Compensation', 0)
+    else:
+        job_title = 'N/A'
+        company = 'N/A'
+        salary = 0
+    
+    net_worth = latest_metrics['net_worth']
+    
+    # Get superannuation value from Assets & Liabilities
+    al_df = data_loader.load_assets_liabilities()
+    latest_date = al_df['Date'].max()
+    super_data = al_df[(al_df['Date'] == latest_date) & 
+                       (al_df['Category'] == 'Asset') & 
+                       (al_df['Type'].str.contains('Super', na=False))]
+    super_value = super_data['Value'].sum() if not super_data.empty else 0
+    
+    # Calculate user age
+    from datetime import datetime
+    age = (datetime.now() - user_info['dob']).days // 365
+    
+    # Benchmark data (example percentiles - these would be from real data sources)
+    # For demonstration, using placeholder values
+    age_range = f"{(age // 5) * 5}-{((age // 5) * 5) + 4}"
+    
+    return dmc.Stack([
+        dmc.Title("Benchmarking", order=2, mb="lg"),
+        
+        # Top Summary Cards - Three separate cards
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Net Worth",
+                    format_currency(net_worth),
+                    f"Top 5% for ages {age_range}"
+                ),
+                span=4
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Superannuation",
+                    format_currency(super_value),
+                    f"For ages {age_range}"
+                ),
+                span=4
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Salary",
+                    format_currency(salary),
+                    f"{job_title} at {company}"
+                ),
+                span=4
+            ),
+        ], gutter="lg"),
+        
+        dmc.Divider(my="xl"),
+        
+        # Comparison Table
+        dmc.Title("How You Compare", order=3, mb="md"),
+        dmc.Paper([
+            dmc.Table([
+                dmc.TableThead([
+                    dmc.TableTr([
+                        dmc.TableTh("Metric"),
+                        dmc.TableTh("Your Value"),
+                        dmc.TableTh("Median (Age " + age_range + ")"),
+                        dmc.TableTh("Top 10%"),
+                        dmc.TableTh("Top 1%"),
+                        dmc.TableTh("Your Percentile"),
+                    ])
+                ]),
+                dmc.TableTbody([
+                    dmc.TableTr([
+                        dmc.TableTd("Net Worth"),
+                        dmc.TableTd(format_currency(net_worth), style={"fontWeight": "600"}),
+                        dmc.TableTd("$25,000"),
+                        dmc.TableTd("$150,000"),
+                        dmc.TableTd("$500,000"),
+                        dmc.TableTd("Top 5%", style={"color": "#10B981", "fontWeight": "600"}),
+                    ]),
+                    dmc.TableTr([
+                        dmc.TableTd("Annual Salary"),
+                        dmc.TableTd(format_currency(salary), style={"fontWeight": "600"}),
+                        dmc.TableTd("$65,000"),
+                        dmc.TableTd("$95,000"),
+                        dmc.TableTd("$150,000"),
+                        dmc.TableTd("Top 15%", style={"color": "#10B981", "fontWeight": "600"}),
+                    ]),
+                    dmc.TableTr([
+                        dmc.TableTd("Savings Rate"),
+                        dmc.TableTd("Coming soon", style={"fontStyle": "italic", "color": "dimmed"}),
+                        dmc.TableTd("15%"),
+                        dmc.TableTd("30%"),
+                        dmc.TableTd("50%"),
+                        dmc.TableTd("-"),
+                    ]),
+                ])
+            ], striped=True, highlightOnHover=True)
+        ], p="md", radius="md", withBorder=True),
+        
+        dmc.Alert(
+            "Note: Benchmark data is illustrative. Real benchmarking would integrate with authoritative data sources (ABS, ATO, etc.)",
+            title="Data Source",
+            color="blue",
+            mt="lg"
+        ),
+    ], gap="lg")
+
+
+def calculators_layout():
+    """Financial calculators page"""
+    # Get most recent job for salary
+    emp_df = data_loader.load_employment()
+    default_salary = 75000  # fallback
+    
+    if not emp_df.empty:
+        emp_df_sorted = emp_df.sort_values('Date Started', ascending=False)
+        latest_job = emp_df_sorted.iloc[0]
+        default_salary = latest_job.get('Total Compensation', 75000)
+    
+    # Get current portfolio value
+    latest_metrics = data_loader.get_latest_metrics()
+    current_portfolio = latest_metrics.get('total_assets', 0)
+    
+    # Calculate user age
+    from datetime import datetime
+    current_age = (datetime.now() - user_info['dob']).days // 365
+    
+    return dmc.Stack([
+        dmc.Title("Financial Calculators", order=2, mb="lg"),
+        
+        # True Cost Calculator Section
+        dmc.Title("True Cost Calculator", order=3, mb="md"),
+        dmc.Paper([
+            dmc.Stack([
+                dmc.Text("Understand the real cost of your purchases", c="dimmed", size="sm"),
+                
+                dmc.Grid([
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="purchase-price-input",
+                            label="Purchase Price ($)",
+                            placeholder="Enter amount",
+                            value=0,
+                            min=0,
+                            step=1,
+                            style={"width": "100%"}
+                        ),
+                    ], span=6),
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="salary-input",
+                            label="Annual Salary ($)",
+                            value=default_salary,
+                            min=0,
+                            step=1000,
+                            style={"width": "100%"}
+                        ),
+                    ], span=6),
+                ]),
+                
+                dmc.Button("Calculate", id="calculate-true-cost", mt="md"),
+                
+                html.Div(id="true-cost-results", children=[
+                    dmc.Alert(
+                        "Enter a purchase price and click Calculate to see the true cost analysis",
+                        color="blue",
+                        title="Ready to analyze"
+                    )
+                ], style={"marginTop": "20px"})
+            ], gap="md")
+        ], p="lg", radius="md", withBorder=True, shadow="sm"),
+        
+        dmc.Divider(my="xl"),
+        
+        # FIRE Calculator Section  
+        dmc.Title("FIRE Calculator", order=3, mb="md"),
+        dmc.Paper([
+            dmc.Stack([
+                dmc.Text("Calculate when you can achieve Financial Independence and Retire Early", c="dimmed", size="sm"),
+                
+                dmc.Grid([
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="current-age-input",
+                            label="Current Age",
+                            value=current_age,
+                            min=18,
+                            max=100,
+                        ),
+                    ], span=4),
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="retirement-age-input",
+                            label="Target Retirement Age",
+                            value=65,
+                            min=18,
+                            max=100,
+                        ),
+                    ], span=4),
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="portfolio-value-input",
+                            label="Current Portfolio ($)",
+                            value=current_portfolio,
+                            min=0,
+                            step=1000,
+                        ),
+                    ], span=4),
+                ]),
+                
+                dmc.Grid([
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="annual-contribution-input",
+                            label="Annual Contribution ($)",
+                            value=20000,
+                            min=0,
+                            step=1000,
+                        ),
+                    ], span=4),
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="target-spend-input",
+                            label="Target Annual Spend ($)",
+                            value=60000,
+                            min=0,
+                            step=1000,
+                        ),
+                    ], span=4),
+                    dmc.GridCol([
+                        dmc.Select(
+                            id="fire-mode-select",
+                            label="FIRE Mode",
+                            data=[
+                                {"value": "custom", "label": "Custom"},
+                                {"value": "lean", "label": "Lean FIRE ($40k/yr)"},
+                                {"value": "fat", "label": "Fat FIRE ($100k/yr)"},
+                                {"value": "coast", "label": "Coast FIRE"},
+                            ],
+                            value="custom",
+                        ),
+                    ], span=4),
+                ]),
+                
+                dmc.Grid([
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="inflation-rate-input",
+                            label="Inflation Rate (%)",
+                            value=3,
+                            min=0,
+                            max=20,
+                            step=0.1,
+                        ),
+                    ], span=6),
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="investment-return-input",
+                            label="Investment Return (%)",
+                            value=7,
+                            min=0,
+                            max=20,
+                            step=0.1,
+                        ),
+                    ], span=6),
+                ]),
+                
+                dmc.Button("Calculate FIRE", id="calculate-fire", mt="md"),
+                
+                html.Div(id="fire-mode-explanation", style={"marginTop": "15px", "marginBottom": "15px"}),
+                
+                html.Div(id="fire-results", children=[
+                    dmc.Alert(
+                        "Configure your inputs and click Calculate to see when you can achieve FIRE",
+                        color="blue",
+                        title="Ready to plan"
+                    )
+                ], style={"marginTop": "20px"})
+            ], gap="md")
+        ], p="lg", radius="md", withBorder=True, shadow="sm"),
+        
+    ], gap="lg")
+
 
 # Main app layout
 app.layout = dmc.MantineProvider(
@@ -1330,7 +1686,7 @@ def update_page(n_clicks):
             current_page = nav_data.get("index", "dashboard")
     
     # Update active states for all nav links
-    nav_items = ["dashboard", "investments", "employment"]
+    nav_items = ["dashboard", "investments", "employment", "benchmarking", "calculators"]
     active_states = [page == current_page for page in nav_items]
     
     # Get page content
@@ -1339,6 +1695,10 @@ def update_page(n_clicks):
         page_content = investments_layout()
     elif current_page == "employment":
         page_content = employment_layout()
+    elif current_page == "benchmarking":
+        page_content = benchmarking_layout()
+    elif current_page == "calculators":
+        page_content = calculators_layout()
     
     return page_content, active_states
 
@@ -1365,6 +1725,220 @@ def update_greeting_message(n_intervals):
             "animation": "messagecycle 5.4s ease-in-out"
         }
     )
+
+# Callback for True Cost Calculator
+@callback(
+    Output("true-cost-results", "children"),
+    [Input("calculate-true-cost", "n_clicks")],
+    [Input("purchase-price-input", "value"),
+     Input("salary-input", "value")]
+)
+def calculate_true_cost(n_clicks, purchase_price, salary):
+    """Calculate and display true cost metrics"""
+    if not n_clicks or purchase_price is None or purchase_price == 0:
+        return dmc.Alert(
+            "Enter a purchase price and click Calculate to see the true cost analysis",
+            color="blue",
+            title="Ready to analyze"
+        )
+    
+    # Calculate metrics
+    hourly_rate = salary / 2080  # 40 hours/week * 52 weeks
+    hours_of_work = purchase_price / hourly_rate
+    
+    # Opportunity cost (7% annual return over 30 years)
+    years = 30
+    return_rate = 0.07
+    future_value = purchase_price * ((1 + return_rate) ** years)
+    opportunity_cost = future_value - purchase_price
+    
+    # Monthly payment equivalent (if financed at 5% over 3 years)
+    months = 36
+    interest_rate = 0.05 / 12
+    if interest_rate > 0:
+        monthly_payment = purchase_price * (interest_rate * (1 + interest_rate)**months) / ((1 + interest_rate)**months - 1)
+    else:
+        monthly_payment = purchase_price / months
+    
+    # Days of expenses
+    daily_expenses = salary / 365 * 0.7  # Assuming 70% of salary goes to expenses
+    days_of_expenses = purchase_price / daily_expenses if daily_expenses > 0 else 0
+    
+    return dmc.Stack([
+        dmc.Alert(
+            f"To afford this {format_currency(purchase_price)} purchase, you'll need to work {hours_of_work:.1f} hours",
+            title="Labor Hours Required",
+            color="blue"
+        ),
+        dmc.Alert(
+            f"If invested instead, this money would grow to {format_currency(future_value)} in {years} years (at 7% return). That's {format_currency(opportunity_cost)} in missed growth!",
+            title="Opportunity Cost",
+            color="yellow"
+        ),
+        dmc.Alert(
+            f"If financed over 3 years at 5% interest, you'd pay {format_currency(monthly_payment)} per month",
+            title="Monthly Payment",
+            color="grape"
+        ),
+        dmc.Alert(
+            f"This purchase equals {days_of_expenses:.0f} days of your living expenses",
+            title="Days of Expenses",
+            color="teal"
+        ),
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Break-even Hours",
+                    f"{hours_of_work:.1f} hrs",
+                    f"At {format_currency(hourly_rate)}/hr"
+                ),
+                span=6
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "30-Year Opportunity Cost",
+                    format_currency(opportunity_cost),
+                    "Missed investment growth"
+                ),
+                span=6
+            ),
+        ], gutter="md")
+    ], gap="md")
+
+
+# Callback for FIRE Calculator
+@callback(
+    [Output("fire-results", "children"),
+     Output("target-spend-input", "value"),
+     Output("fire-mode-explanation", "children")],
+    [Input("calculate-fire", "n_clicks"),
+     Input("fire-mode-select", "value")],
+    [dash.dependencies.State("current-age-input", "value"),
+     dash.dependencies.State("retirement-age-input", "value"),
+     dash.dependencies.State("portfolio-value-input", "value"),
+     dash.dependencies.State("annual-contribution-input", "value"),
+     dash.dependencies.State("target-spend-input", "value"),
+     dash.dependencies.State("inflation-rate-input", "value"),
+     dash.dependencies.State("investment-return-input", "value")]
+)
+def calculate_fire(n_clicks, fire_mode, current_age, retirement_age, portfolio_value, 
+                  annual_contribution, target_spend, inflation_rate, investment_return):
+    """Calculate FIRE metrics"""
+    # Create mode explanation
+    fire_explanations = {
+        "custom": "Set your own target annual spending in retirement. All values are in current day purchasing power with inflation calculated in.",
+        "lean": "Lean FIRE: Achieve financial independence with a modest lifestyle ($40k/year). Minimalist approach focused on essential expenses. All values are in current day purchasing power with inflation calculated in.",
+        "fat": "Fat FIRE: Achieve financial independence with a comfortable lifestyle ($100k/year). Maintains a higher standard of living in retirement. All values are in current day purchasing power with inflation calculated in.",
+        "coast": "Coast FIRE: Your portfolio is large enough that you can stop contributing and it will grow to your FIRE number by retirement age. You still work, but don't need to save for retirement. Note: This calculation does NOT include annual contributions. All values are in current day purchasing power with inflation calculated in."
+    }
+    
+    explanation = dmc.Alert(
+        fire_explanations.get(fire_mode, ""),
+        color="gray",
+        icon=True,
+        style={"textAlign": "center"}
+    )
+    
+    # Adjust target spend based on mode
+    if fire_mode == "lean":
+        target_spend = 40000
+    elif fire_mode == "fat":
+        target_spend = 100000
+    
+    if not n_clicks:
+        return dmc.Alert(
+            "Configure your inputs and click Calculate to see when you can achieve FIRE",
+            color="blue",
+            title="Ready to plan"
+        ), target_spend, explanation
+    
+    # Convert percentages to decimals
+    inflation = inflation_rate / 100
+    returns = investment_return / 100
+    
+    # Calculate real return (adjusted for inflation)
+    real_return = (1 + returns) / (1 + inflation) - 1
+    
+    # Calculate FIRE number (using 4% rule - 25x annual expenses)
+    withdrawal_rate = 0.04
+    fire_number = target_spend / withdrawal_rate
+    
+    # For Coast FIRE, check if current portfolio will grow to FIRE number by retirement
+    if fire_mode == "coast":
+        years_to_retirement = retirement_age - current_age
+        future_portfolio = portfolio_value * ((1 + real_return) ** years_to_retirement)
+        
+        results = dmc.Stack([
+            dmc.Alert(
+                f"Your FIRE Number: {format_currency(fire_number)} (25x your annual spend of {format_currency(target_spend)})",
+                title="Target",
+                color="blue"
+            ),
+            dmc.Alert(
+                f"With NO additional contributions, your current portfolio of {format_currency(portfolio_value)} will grow to {format_currency(future_portfolio)} by age {retirement_age}",
+                title="Coast FIRE Projection (Annual Contribution Ignored)",
+                color="green" if future_portfolio >= fire_number else "red"
+            ),
+            dmc.Alert(
+                "✅ You can Coast FIRE! Stop contributing now and still retire on time." if future_portfolio >= fire_number else "❌ You cannot Coast FIRE yet. Keep contributing to reach your goal.",
+                color="green" if future_portfolio >= fire_number else "red"
+            )
+        ], gap="md")
+        
+        return results, target_spend, explanation
+    
+    # Calculate years to FIRE (simplified projection)
+    current_portfolio = portfolio_value
+    years_to_fire = 0
+    max_years = 100
+    
+    while current_portfolio < fire_number and years_to_fire < max_years:
+        current_portfolio = current_portfolio * (1 + real_return) + annual_contribution
+        years_to_fire += 1
+    
+    fire_age = current_age + years_to_fire
+    
+    # Create results
+    results = dmc.Stack([
+        dmc.Alert(
+            f"Your FIRE Number: {format_currency(fire_number)} (25x your annual spend of {format_currency(target_spend)})",
+            title="Target",
+            color="blue"
+        ),
+        dmc.Alert(
+            f"You can achieve FIRE in {years_to_fire} years at age {fire_age}!" if years_to_fire < max_years else "FIRE may not be achievable with current parameters",
+            title="FIRE Timeline",
+            color="green" if years_to_fire < max_years else "red"
+        ),
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Years to FIRE",
+                    f"{years_to_fire}",
+                    f"Age {fire_age}"
+                ),
+                span=4
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "FIRE Number",
+                    format_currency(fire_number),
+                    f"Based on {format_currency(target_spend)}/yr"
+                ),
+                span=4
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Monthly Target",
+                    format_currency(target_spend / 12),
+                    "In retirement"
+                ),
+                span=4
+            ),
+        ], gutter="md")
+    ], gap="md")
+    
+    return results, target_spend, explanation
 
 # Run server
 if __name__ == "__main__":
