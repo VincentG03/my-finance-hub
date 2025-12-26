@@ -6,8 +6,8 @@ Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 # ============================================================================
 # CONFIGURATION: Set the Excel file to load
 # ============================================================================
-#EXCEL_FILE = 'user_data/vincent_financial_data.xlsx'  
-EXCEL_FILE = 'user_data/test_financial_data.xlsx'  # Change this to load a different file
+EXCEL_FILE = 'user_data/vincent_financial_data.xlsx'  
+#EXCEL_FILE = 'user_data/test_financial_data.xlsx'  # Change this to load a different file
 # ============================================================================
 
 import dash
@@ -1266,6 +1266,50 @@ def employment_layout():
         )
     )
     
+    # Career Progression Bar Chart
+    # Shows salary for each job with company name and role
+    progression_companies = []
+    progression_salaries = []
+    progression_colors_list = []
+    
+    for idx, row in emp_df_sorted.iterrows():
+        # X-axis label: Company name and role
+        label = f"{row['Company']}<br>{row.get('Position', 'N/A')}"
+        progression_companies.append(label)
+        progression_salaries.append(row['Total Compensation'])
+        progression_colors_list.append(company_colors.get(row['Company'], '#6b7280'))
+    
+    fig_progression = go.Figure(data=[
+        go.Bar(
+            x=progression_companies,
+            y=progression_salaries,
+            marker_color=progression_colors_list,
+            text=[f"${sal:,.0f}" for sal in progression_salaries],
+            textposition='outside',
+            hovertemplate='<b>%{x}</b><br>Salary: %{text}<extra></extra>'
+        )
+    ])
+    
+    fig_progression.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        xaxis_title='Company & Role',
+        yaxis_title='Salary ($)',
+        height=450,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black',
+            namelength=0
+        ),
+        yaxis=dict(
+            tickformat='$,.0f'
+        )
+    )
+    
     # Business days worked by company
     company_days = emp_df_sorted.groupby('Company')['Business Days'].sum().sort_values(ascending=False).reset_index()
     
@@ -1336,6 +1380,16 @@ def employment_layout():
         dmc.Title("Annualized Salary Timeline", order=3, mb="md"),
         dmc.Paper(
             dcc.Graph(figure=fig_timeline, config={'displayModeBar': False}),
+            p="md",
+            radius="md",
+            withBorder=True
+        ),
+        
+        # Career Progression Waterfall
+        dmc.Title("Career Progression", order=3, mb="md", mt="xl"),
+        dmc.Text("See how your salary has changed with each job transition", c="dimmed", size="sm", mb="md"),
+        dmc.Paper(
+            dcc.Graph(figure=fig_progression, config={'displayModeBar': False}),
             p="md",
             radius="md",
             withBorder=True
