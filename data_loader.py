@@ -60,7 +60,7 @@ class FinanceDataLoader:
         date_row = df_raw.iloc[0, 1:].values
         dates = pd.to_datetime(date_row, errors='coerce')
         
-        # Find "Cash - Commbank & ING" row for stop logic
+        # Find "Cash" row for stop logic (handles both "Cash" and "Cash - Commbank & ING")
         cash_row_idx = self._find_cash_row(df_raw)
         
         # Implement "Cash stop" logic - count valid dates until first NaN in Cash row
@@ -91,15 +91,24 @@ class FinanceDataLoader:
             self._assets_liabilities_df = self._assets_liabilities_df.sort_values(
                 ['Date', 'Category', 'Type']
             ).reset_index(drop=True)
+            
+            # Rename asset types for cleaner display
+            self._assets_liabilities_df['Type'] = self._assets_liabilities_df['Type'].replace({
+                'Cash - Commbank & ING': 'Cash',
+                'Super - Aussuper': 'Super'
+            })
         
         return self._assets_liabilities_df
     
     def _find_cash_row(self, df_raw: pd.DataFrame) -> int:
         """Find the Cash row index for stop logic"""
         for i, val in enumerate(df_raw.iloc[:, 0]):
-            if pd.notna(val) and 'Cash' in str(val) and 'Commbank' in str(val):
-                return i
-        raise ValueError("Could not find 'Cash - Commbank & ING' row")
+            if pd.notna(val):
+                val_str = str(val).strip()
+                # Look for "Cash" at the start (handles both "Cash" and "Cash - Commbank & ING")
+                if val_str.lower().startswith('cash'):
+                    return i
+        raise ValueError("Could not find 'Cash' row")
     
     def _count_valid_dates(self, df_raw: pd.DataFrame, cash_row_idx: int) -> int:
         """Count valid dates until first NaN in Cash row"""
