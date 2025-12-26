@@ -6,7 +6,6 @@ Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 # ============================================================================
 # CONFIGURATION: Set the Excel file to load
 # ============================================================================
-EXCEL_FILE = 'data/vincent_financial_data.xlsx'  # Change this to load a different file
 EXCEL_FILE = 'data/test_financial_data.xlsx'  # Change this to load a different file
 # ============================================================================
 
@@ -626,16 +625,30 @@ def investments_layout():
     stock_timeseries = stock_values_over_time.groupby('Date')['Value'].sum().reset_index()
     stock_timeseries.columns = ['Date', 'Stock Value']
     
-    # Add hardcoded market value data points
-    hardcoded_market_values = pd.DataFrame([
-        {'Date': pd.Timestamp('2022-10-28'), 'Stock Value': 5400},
-        {'Date': pd.Timestamp('2022-11-03'), 'Stock Value': 12500},
-        {'Date': pd.Timestamp('2023-02-22'), 'Stock Value': 18000},
-        {'Date': pd.Timestamp('2023-06-27'), 'Stock Value': 21000},
-    ])
+    # Add hardcoded market value data points - ONLY for specific Excel files
+    hardcoded_market_values = pd.DataFrame()
+    
+    if EXCEL_FILE == 'data/vincent_financial_data.xlsx':
+        # Vincent's hardcoded market values
+        hardcoded_market_values = pd.DataFrame([
+            {'Date': pd.Timestamp('2022-10-28'), 'Stock Value': 5400},
+            {'Date': pd.Timestamp('2022-11-03'), 'Stock Value': 12500},
+            {'Date': pd.Timestamp('2023-02-22'), 'Stock Value': 18000},
+            {'Date': pd.Timestamp('2023-06-27'), 'Stock Value': 21000},
+        ])
+    elif EXCEL_FILE == 'data/test_financial_data.xlsx':
+        # Test data hardcoded market values
+        hardcoded_market_values = pd.DataFrame([
+            {'Date': pd.Timestamp('2022-10-27'), 'Stock Value': 0},
+            {'Date': pd.Timestamp('2022-11-03'), 'Stock Value': 22510},
+            {'Date': pd.Timestamp('2023-02-22'), 'Stock Value': 25560},
+            {'Date': pd.Timestamp('2023-06-27'), 'Stock Value': 31510},
+        ])
+    # For any other Excel file, hardcoded_market_values remains empty
     
     # Combine hardcoded and actual market values, remove duplicates
-    stock_timeseries = pd.concat([stock_timeseries, hardcoded_market_values]).drop_duplicates(subset=['Date']).sort_values('Date').reset_index(drop=True)
+    if not hardcoded_market_values.empty:
+        stock_timeseries = pd.concat([stock_timeseries, hardcoded_market_values]).drop_duplicates(subset=['Date']).sort_values('Date').reset_index(drop=True)
     
     # Ensure Date column is datetime
     stock_timeseries['Date'] = pd.to_datetime(stock_timeseries['Date'])
@@ -802,8 +815,8 @@ def investments_layout():
         font=dict(family='Inter, sans-serif'),
         xaxis_title='Date',
         xaxis=dict(
-            type='date',
-            range=['2022-10-27', pd.Timestamp.now().strftime('%Y-%m-%d')]
+            type='date'
+            # Range is automatically determined from data
         ),
         yaxis_title='Amount ($)',
         hovermode='x unified',
@@ -1083,15 +1096,25 @@ def employment_layout():
     # Salary progression timeline
     emp_df_sorted = emp_df.sort_values('Date Started').copy()
     
-    # Define specific colors for each company (use lowercase for matching)
-    company_colors = {
-        'artin': '#8b5cf6',  # purple
-        'commbank': '#eab308',  # yellow
-        'commonwealth': '#eab308',  # yellow (alternate)
-        'jetstar': '#f97316',  # orange
-        'deloitte': '#6b7280',  # grey
-        'aurecon': '#10b981',  # green
-    }
+    # Dynamic color palette that fits the app's color scheme
+    # Primary color: #4A9EFF (blue)
+    color_palette = [
+        '#4A9EFF',  # primary blue
+        '#8b5cf6',  # purple
+        '#10b981',  # green
+        '#f59e0b',  # amber
+        '#ef4444',  # red
+        '#ec4899',  # pink
+        '#06b6d4',  # cyan
+        '#8b5a3c',  # brown
+        '#6366f1',  # indigo
+        '#14b8a6',  # teal
+    ]
+    
+    # Assign colors dynamically to companies in order of appearance
+    unique_companies = emp_df_sorted['Company'].unique()
+    company_colors = {company: color_palette[i % len(color_palette)] 
+                     for i, company in enumerate(unique_companies)}
     
     # Calculate business days worked and handle ongoing positions
     # Special case: Artin Education only worked weekends (Sat + Sun)
@@ -1134,13 +1157,9 @@ def employment_layout():
     
     # Create timeline with segments for each job
     for idx, row in emp_df_sorted.iterrows():
-        # Match company name case-insensitively
-        company_name = str(row['Company'])
-        color = '#6b7280'  # default grey
-        for company_key, company_color in company_colors.items():
-            if company_key in company_name.lower():
-                color = company_color
-                break
+        # Get color for this company
+        company_name = row['Company']
+        color = company_colors.get(company_name, '#6b7280')  # default grey if not found
         
         # Build hover template with base + super breakdown
         base_salary = row.get('Base Salary', 0)
@@ -1188,15 +1207,8 @@ def employment_layout():
     # Business days worked by company
     company_days = emp_df_sorted.groupby('Company')['Business Days'].sum().sort_values(ascending=False).reset_index()
     
-    # Use company colors with case-insensitive matching
-    bar_colors = []
-    for company in company_days['Company']:
-        color = '#6b7280'  # default grey
-        for company_key, company_color in company_colors.items():
-            if company_key in str(company).lower():
-                color = company_color
-                break
-        bar_colors.append(color)
+    # Use dynamically assigned company colors
+    bar_colors = [company_colors.get(company, '#6b7280') for company in company_days['Company']]
     
     fig_days = go.Figure(data=[go.Bar(
         x=company_days['Company'],
