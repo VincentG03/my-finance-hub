@@ -344,7 +344,14 @@ def dashboard_layout():
         yaxis_title='Net Worth ($)',
         hovermode='x unified',
         height=400,
-        margin=dict(l=0, r=0, t=20, b=0)
+        margin=dict(l=0, r=0, t=20, b=0),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black'
+        )
     )
     
     # Asset breakdown
@@ -369,7 +376,35 @@ def dashboard_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
+        )
+    )
+    
+    # Liabilities breakdown
+    liability_breakdown = data_loader.get_liability_breakdown()
+    
+    fig_liabilities = go.Figure(data=[go.Pie(
+        labels=liability_breakdown['Type'],
+        values=liability_breakdown['Value'],
+        hole=0.5,
+        marker=dict(colors=px.colors.sequential.Reds_r),
+        textposition='auto',
+        hovertemplate='<b>%{label}</b><br>$%{value:,.2f}<br>%{percent}<extra></extra>'
+    )])
+    
+    fig_liabilities.update_layout(
+        template='plotly_white',
+        font=dict(family='Inter, sans-serif'),
+        height=400,
+        margin=dict(l=0, r=0, t=20, b=0),
+        showlegend=True,
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -396,7 +431,14 @@ def dashboard_layout():
         barmode='group',
         height=400,
         margin=dict(l=0, r=0, t=20, b=0),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=13,
+            font_family='Inter, sans-serif',
+            font_color='black',
+            bordercolor='black'
+        )
     )
     
     # Month-over-month changes
@@ -429,7 +471,8 @@ def dashboard_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -483,7 +526,7 @@ def dashboard_layout():
         dmc.Divider(my="xl"),
         
         # Net worth trend
-        dmc.Title("Net Worth Trend", order=3, mb="md"),
+        dmc.Title("Overall Trend", order=3, mb="md"),
         dmc.Paper(
             dcc.Graph(figure=fig_networth, config={'displayModeBar': False}),
             p="md",
@@ -492,7 +535,7 @@ def dashboard_layout():
         ),
         
         # Month-over-month
-        dmc.Title("Net Worth - Month-over-Month Changes", order=3, mb="md", mt="xl"),
+        dmc.Title("Month-over-Month Changes", order=3, mb="md", mt="xl"),
         dmc.Paper(
             dcc.Graph(figure=fig_mom, config={'displayModeBar': False}),
             p="md",
@@ -500,7 +543,16 @@ def dashboard_layout():
             withBorder=True
         ),
         
-        # Charts row
+        # Assets vs Liabilities Over Time - full width
+        dmc.Title("Assets vs Liabilities Over Time", order=3, mb="md", mt="xl"),
+        dmc.Paper(
+            dcc.Graph(figure=fig_comparison, config={'displayModeBar': False}),
+            p="md",
+            radius="md",
+            withBorder=True
+        ),
+        
+        # Breakdown charts row
         dmc.Grid([
             dmc.GridCol([
                 dmc.Title("Asset Breakdown", order=3, mb="md"),
@@ -512,9 +564,9 @@ def dashboard_layout():
                 )
             ], span=6),
             dmc.GridCol([
-                dmc.Title("Assets vs Liabilities Over Time", order=3, mb="md"),
+                dmc.Title("Liabilities Breakdown", order=3, mb="md"),
                 dmc.Paper(
-                    dcc.Graph(figure=fig_comparison, config={'displayModeBar': False}),
+                    dcc.Graph(figure=fig_liabilities, config={'displayModeBar': False}),
                     p="md",
                     radius="md",
                     withBorder=True
@@ -750,7 +802,8 @@ def investments_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -774,7 +827,8 @@ def investments_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -801,7 +855,8 @@ def investments_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -881,13 +936,14 @@ def employment_layout():
     # Salary progression timeline
     emp_df_sorted = emp_df.sort_values('Date Started').copy()
     
-    # Define specific colors for each company
+    # Define specific colors for each company (use lowercase for matching)
     company_colors = {
-        'Artin Education': '#8b5cf6',  # purple
-        'Commbank': '#eab308',  # yellow
-        'Jetstar': '#f97316',  # orange
-        'Deloitte': '#6b7280',  # grey
-        'Aurecon': '#10b981',  # green
+        'artin': '#8b5cf6',  # purple
+        'commbank': '#eab308',  # yellow
+        'commonwealth': '#eab308',  # yellow (alternate)
+        'jetstar': '#f97316',  # orange
+        'deloitte': '#6b7280',  # grey
+        'aurecon': '#10b981',  # green
     }
     
     # Calculate business days worked and handle ongoing positions
@@ -935,7 +991,7 @@ def employment_layout():
         company_name = str(row['Company'])
         color = '#6b7280'  # default grey
         for company_key, company_color in company_colors.items():
-            if company_key.lower() in company_name.lower():
+            if company_key in company_name.lower():
                 color = company_color
                 break
         
@@ -976,7 +1032,8 @@ def employment_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
@@ -988,7 +1045,7 @@ def employment_layout():
     for company in company_days['Company']:
         color = '#6b7280'  # default grey
         for company_key, company_color in company_colors.items():
-            if company_key.lower() in str(company).lower():
+            if company_key in str(company).lower():
                 color = company_color
                 break
         bar_colors.append(color)
@@ -1013,7 +1070,8 @@ def employment_layout():
             bgcolor='white',
             font_size=13,
             font_family='Inter, sans-serif',
-            bordercolor='#e5e7eb'
+            font_color='black',
+            bordercolor='black'
         )
     )
     
