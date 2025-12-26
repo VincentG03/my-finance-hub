@@ -146,7 +146,7 @@ def calculate_percentage_change(current, previous):
         return 0
     return ((current - previous) / previous) * 100
 
-def create_metric_card(label, value, change=None, color='blue', is_liability=False):
+def create_metric_card(label, value, change=None, color='blue', is_liability=False, change_color_override=None):
     """Create a metric card using DMC components
     
     Args:
@@ -155,10 +155,12 @@ def create_metric_card(label, value, change=None, color='blue', is_liability=Fal
         change: Change text (e.g., '↑ 5.2% vs last period')
         color: Card color theme
         is_liability: If True, inverts color logic (up=red, down=green)
+        change_color_override: Force a specific color for change text (e.g., 'blue')
     """
     # Determine color based on direction and metric type
-    change_color = "dimmed"
-    if change:
+    if change_color_override:
+        change_color = change_color_override
+    elif change:
         if is_liability:
             # For liabilities: increase is bad (red), decrease is good (green)
             change_color = "red" if '↑' in change else "green" if '↓' in change else "dimmed"
@@ -194,10 +196,10 @@ def create_animated_greeting():
     first_name = user_info['full_name'].split()[0]
     
     return html.Div([
-        # Interval component to trigger message rotation every 3 seconds
+        # Interval component to trigger message rotation
         dcc.Interval(
             id='greeting-interval',
-            interval=5400,  # 5.4 seconds total (0.7s fade in + 4s visible + 0.7s fade out)
+            interval=3900,  # 3.9 seconds total (0.7s fade in + 2.5s visible + 0.7s fade out)
             n_intervals=0
         ),
         # Greeting container
@@ -1382,20 +1384,139 @@ def benchmarking_layout():
     from datetime import datetime
     age = (datetime.now() - user_info['dob']).days // 365
     
-    # Benchmark data (example percentiles - these would be from real data sources)
-    # For demonstration, using placeholder values
-    age_range = f"{(age // 5) * 5}-{((age // 5) * 5) + 4}"
+    # Load benchmark data from Excel
+    benchmark_path = 'data/benchmark.xlsx'
+    super_bench = pd.read_excel(benchmark_path, sheet_name='Superannuation')
+    networth_bench = pd.read_excel(benchmark_path, sheet_name='Net Worth')
+    salary_bench = pd.read_excel(benchmark_path, sheet_name='Salary')
+    
+    # Helper function to find appropriate benchmark for age
+    def get_super_benchmark(age):
+        # Map age to age group
+        if 18 <= age <= 24:
+            row = super_bench[super_bench['Age Group'] == '18-24']
+            age_group = '18-24'
+        elif 25 <= age <= 29:
+            row = super_bench[super_bench['Age Group'] == '25-29']
+            age_group = '25-29'
+        elif 30 <= age <= 34:
+            row = super_bench[super_bench['Age Group'] == '30-34']
+            age_group = '30-34'
+        elif 35 <= age <= 39:
+            row = super_bench[super_bench['Age Group'] == '35-39']
+            age_group = '35-39'
+        elif 40 <= age <= 44:
+            row = super_bench[super_bench['Age Group'] == '40-44']
+            age_group = '40-44'
+        elif 45 <= age <= 49:
+            row = super_bench[super_bench['Age Group'] == '45-49']
+            age_group = '45-49'
+        elif 50 <= age <= 54:
+            row = super_bench[super_bench['Age Group'] == '50-54']
+            age_group = '50-54'
+        elif 55 <= age <= 59:
+            row = super_bench[super_bench['Age Group'] == '55-59']
+            age_group = '55-59'
+        elif 60 <= age <= 64:
+            row = super_bench[super_bench['Age Group'] == '60-64']
+            age_group = '60-64'
+        else:
+            row = super_bench[super_bench['Age Group'] == '65-69']
+            age_group = '65-69'
+        return row['Median Balance ($)'].values[0] if not row.empty else 0, age_group
+    
+    def get_networth_benchmark(age):
+        if age <= 40:
+            row = networth_bench[networth_bench['Age of Household Reference Person'] == '25-40']
+            age_group = '25-40'
+        elif age <= 64:
+            row = networth_bench[networth_bench['Age of Household Reference Person'] == '41-64']
+            age_group = '41-64'
+        else:
+            row = networth_bench[networth_bench['Age of Household Reference Person'] == '65+']
+            age_group = '65+'
+        return (row['Median Net Worth ($)'].values[0] if not row.empty else 0,
+                row['Top 25% Net Worth ($)'].values[0] if not row.empty else 0,
+                row['Top 1% Net Worth ($)'].values[0] if not row.empty else 0,
+                age_group)
+    
+    def get_salary_benchmark(age):
+        if 15 <= age <= 24:
+            row = salary_bench[salary_bench['Age Group'] == '15-24']
+            age_group = '15-24'
+        elif 25 <= age <= 34:
+            row = salary_bench[salary_bench['Age Group'] == '25-34']
+            age_group = '25-34'
+        elif 35 <= age <= 44:
+            row = salary_bench[salary_bench['Age Group'] == '35-44']
+            age_group = '35-44'
+        elif 45 <= age <= 54:
+            row = salary_bench[salary_bench['Age Group'] == '45-54']
+            age_group = '45-54'
+        else:
+            row = salary_bench[salary_bench['Age Group'] == '55-64']
+            age_group = '55-64'
+        return row['Median Annual Income ($)'].values[0] if not row.empty else 0, age_group
+    
+    # Get benchmarks
+    super_median, super_age_group = get_super_benchmark(age)
+    nw_median, nw_top25, nw_top1, nw_age_group = get_networth_benchmark(age)
+    salary_median, salary_age_group = get_salary_benchmark(age)
+    
+    # Calculate % above/below median
+    super_pct = ((super_value - super_median) / super_median * 100) if super_median > 0 else 0
+    nw_pct = ((net_worth - nw_median) / nw_median * 100) if nw_median > 0 else 0
+    salary_pct = ((salary - salary_median) / salary_median * 100) if salary_median > 0 else 0
+    
+    # Approximate percentile for net worth based on available data
+    def approximate_percentile(value, median, top25, top1):
+        if value >= top1:
+            return "Top 1% (Approx.)"
+        elif value >= top25:
+            # Linear interpolation between top 25% and top 1%
+            pct = 25 - ((value - top25) / (top1 - top25) * 24)
+            return f"Top {max(1, int(pct))}% (Approx.)"
+        elif value >= median:
+            # Between median (50th) and top 25%
+            pct = 50 - ((value - median) / (top25 - median) * 25)
+            return f"Top {max(25, int(pct))}% (Approx.)"
+        else:
+            # Below median
+            pct = 50 + ((median - value) / median * 50)
+            return f"Bottom {min(99, int(pct))}% (Approx.)"
+    
+    nw_percentile = approximate_percentile(net_worth, nw_median, nw_top25, nw_top1)
+    
+    # Simple percentile estimate for super and salary (no top % data available)
+    def simple_percentile(value, median):
+        if value >= median:
+            return "Above Median"
+        else:
+            return "Below Median"
+    
+    super_percentile = simple_percentile(super_value, super_median)
+    salary_percentile = simple_percentile(salary, salary_median)
+    
+    # Format subtext for cards
+    super_subtext = f"{'+' if super_pct >= 0 else ''}{super_pct:.1f}% vs median"
+    nw_subtext = f"{'+' if nw_pct >= 0 else ''}{nw_pct:.1f}% vs median"
+    salary_subtext = f"{job_title} at {company}"
+    
+    # Determine color for Net Worth and Super based on performance
+    nw_change_color = "green" if nw_pct >= 0 else "red"
+    super_change_color = "green" if super_pct >= 0 else "red"
     
     return dmc.Stack([
         dmc.Title("Benchmarking", order=2, mb="lg"),
         
-        # Top Summary Cards - Three separate cards
+        # Top Summary Cards - Net Worth/Super show green/red, Salary shows blue
         dmc.Grid([
             dmc.GridCol(
                 create_metric_card(
                     "Net Worth",
                     format_currency(net_worth),
-                    f"Top 5% for ages {age_range}"
+                    nw_subtext,
+                    change_color_override=nw_change_color
                 ),
                 span=4
             ),
@@ -1403,7 +1524,8 @@ def benchmarking_layout():
                 create_metric_card(
                     "Superannuation",
                     format_currency(super_value),
-                    f"For ages {age_range}"
+                    super_subtext,
+                    change_color_override=super_change_color
                 ),
                 span=4
             ),
@@ -1411,7 +1533,8 @@ def benchmarking_layout():
                 create_metric_card(
                     "Salary",
                     format_currency(salary),
-                    f"{job_title} at {company}"
+                    salary_subtext,
+                    change_color_override="blue"
                 ),
                 span=4
             ),
@@ -1427,45 +1550,123 @@ def benchmarking_layout():
                     dmc.TableTr([
                         dmc.TableTh("Metric"),
                         dmc.TableTh("Your Value"),
-                        dmc.TableTh("Median (Age " + age_range + ")"),
-                        dmc.TableTh("Top 10%"),
-                        dmc.TableTh("Top 1%"),
-                        dmc.TableTh("Your Percentile"),
+                        dmc.TableTh("Age Group"),
+                        dmc.TableTh("Median"),
+                        dmc.TableTh("% Above/Below"),
+                        dmc.TableTh("Estimated Position"),
                     ])
                 ]),
                 dmc.TableTbody([
                     dmc.TableTr([
                         dmc.TableTd("Net Worth"),
                         dmc.TableTd(format_currency(net_worth), style={"fontWeight": "600"}),
-                        dmc.TableTd("$25,000"),
-                        dmc.TableTd("$150,000"),
-                        dmc.TableTd("$500,000"),
-                        dmc.TableTd("Top 5%", style={"color": "#10B981", "fontWeight": "600"}),
+                        dmc.TableTd(nw_age_group, style={"color": "dimmed"}),
+                        dmc.TableTd(format_currency(nw_median)),
+                        dmc.TableTd(
+                            f"{'+' if nw_pct >= 0 else ''}{nw_pct:.1f}%",
+                            style={"color": "#10B981" if nw_pct >= 0 else "#EF4444", "fontWeight": "600"}
+                        ),
+                        dmc.TableTd(nw_percentile, style={"color": "#10B981" if nw_pct >= 0 else "#EF4444", "fontWeight": "600"}),
                     ]),
                     dmc.TableTr([
-                        dmc.TableTd("Annual Salary"),
+                        dmc.TableTd("Salary"),
                         dmc.TableTd(format_currency(salary), style={"fontWeight": "600"}),
-                        dmc.TableTd("$65,000"),
-                        dmc.TableTd("$95,000"),
-                        dmc.TableTd("$150,000"),
-                        dmc.TableTd("Top 15%", style={"color": "#10B981", "fontWeight": "600"}),
+                        dmc.TableTd(salary_age_group, style={"color": "dimmed"}),
+                        dmc.TableTd(format_currency(salary_median)),
+                        dmc.TableTd(
+                            f"{'+' if salary_pct >= 0 else ''}{salary_pct:.1f}%",
+                            style={"color": "#10B981" if salary_pct >= 0 else "#EF4444", "fontWeight": "600"}
+                        ),
+                        dmc.TableTd(salary_percentile, style={"color": "#10B981" if salary_pct >= 0 else "#EF4444", "fontWeight": "600"}),
                     ]),
                     dmc.TableTr([
-                        dmc.TableTd("Savings Rate"),
-                        dmc.TableTd("Coming soon", style={"fontStyle": "italic", "color": "dimmed"}),
-                        dmc.TableTd("15%"),
-                        dmc.TableTd("30%"),
-                        dmc.TableTd("50%"),
-                        dmc.TableTd("-"),
+                        dmc.TableTd("Superannuation"),
+                        dmc.TableTd(format_currency(super_value), style={"fontWeight": "600"}),
+                        dmc.TableTd(super_age_group, style={"color": "dimmed"}),
+                        dmc.TableTd(format_currency(super_median)),
+                        dmc.TableTd(
+                            f"{'+' if super_pct >= 0 else ''}{super_pct:.1f}%",
+                            style={"color": "#10B981" if super_pct >= 0 else "#EF4444", "fontWeight": "600"}
+                        ),
+                        dmc.TableTd(super_percentile, style={"color": "#10B981" if super_pct >= 0 else "#EF4444", "fontWeight": "600"}),
                     ]),
                 ])
             ], striped=True, highlightOnHover=True)
         ], p="md", radius="md", withBorder=True),
         
-        dmc.Alert(
-            "Note: Benchmark data is illustrative. Real benchmarking would integrate with authoritative data sources (ABS, ATO, etc.)",
-            title="Data Source",
-            color="blue",
+        # Benchmark Data Accordion
+        dmc.Accordion(
+            children=[
+                dmc.AccordionItem(
+                    children=[
+                        dmc.AccordionControl("View Benchmark Data"),
+                        dmc.AccordionPanel([
+                            # Net Worth Benchmark Table (Full Width)
+                            dmc.Title("Net Worth Benchmark (Grattan Institute / ABS, 2024)", order=4, size="md", mb="sm", mt="sm"),
+                            dmc.Table([
+                                dmc.TableThead([
+                                    dmc.TableTr([
+                                        dmc.TableTh("Age Group"),
+                                        dmc.TableTh("Median Net Worth"),
+                                        dmc.TableTh("Top 25%"),
+                                        dmc.TableTh("Top 1%"),
+                                    ])
+                                ]),
+                                dmc.TableTbody([
+                                    dmc.TableTr([
+                                        dmc.TableTd(row['Age of Household Reference Person']),
+                                        dmc.TableTd(format_currency(row['Median Net Worth ($)'])),
+                                        dmc.TableTd(format_currency(row['Top 25% Net Worth ($)'])),
+                                        dmc.TableTd(format_currency(row['Top 1% Net Worth ($)'])),
+                                    ]) for _, row in networth_bench.iterrows()
+                                ])
+                            ], striped=True),
+                            
+                            # Grid with Salary and Superannuation side by side
+                            dmc.Grid([
+                                # Salary Benchmark Table
+                                dmc.GridCol([
+                                    dmc.Title("Salary Benchmark (ABS, 2023)", order=4, size="md", mb="sm", mt="lg"),
+                                    dmc.Table([
+                                        dmc.TableThead([
+                                            dmc.TableTr([
+                                                dmc.TableTh("Age Group"),
+                                                dmc.TableTh("Median Income"),
+                                            ])
+                                        ]),
+                                        dmc.TableTbody([
+                                            dmc.TableTr([
+                                                dmc.TableTd(row['Age Group']),
+                                                dmc.TableTd(format_currency(row['Median Annual Income ($)'])),
+                                            ]) for _, row in salary_bench.iterrows()
+                                        ])
+                                    ], striped=True),
+                                ], span=6),
+                                
+                                # Superannuation Benchmark Table
+                                dmc.GridCol([
+                                    dmc.Title("Superannuation Benchmark (ASFA, 2024)", order=4, size="md", mb="sm", mt="lg"),
+                                    dmc.Table([
+                                        dmc.TableThead([
+                                            dmc.TableTr([
+                                                dmc.TableTh("Age Group"),
+                                                dmc.TableTh("Median Balance"),
+                                            ])
+                                        ]),
+                                        dmc.TableTbody([
+                                            dmc.TableTr([
+                                                dmc.TableTd(row['Age Group']),
+                                                dmc.TableTd(format_currency(row['Median Balance ($)'])),
+                                            ]) for _, row in super_bench.iterrows()
+                                        ])
+                                    ], striped=True),
+                                ], span=6),
+                            ], gutter="lg"),
+                        ])
+                    ],
+                    value="benchmark-data"
+                )
+            ],
             mt="lg"
         ),
     ], gap="lg")
@@ -1492,6 +1693,47 @@ def calculators_layout():
     
     return dmc.Stack([
         dmc.Title("Financial Calculators", order=2, mb="lg"),
+        
+        # Tax Calculator Section
+        dmc.Title("Tax Calculator (2025-26)", order=3, mb="md"),
+        dmc.Paper([
+            dmc.Stack([
+                dmc.Text("Calculate your estimated income tax based on Australian tax rates", c="dimmed", size="sm"),
+                
+                dmc.Grid([
+                    dmc.GridCol([
+                        dmc.NumberInput(
+                            id="tax-salary-input",
+                            label="Annual Taxable Income ($)",
+                            value=default_salary,
+                            min=0,
+                            step=1000,
+                            style={"width": "100%"}
+                        ),
+                    ], span=8),
+                    dmc.GridCol([
+                        dmc.Checkbox(
+                            id="medicare-levy-checkbox",
+                            label="Include Medicare Levy (2%)",
+                            checked=True,
+                            mt="lg"
+                        ),
+                    ], span=4),
+                ]),
+                
+                dmc.Button("Calculate Tax", id="calculate-tax", mt="md"),
+                
+                html.Div(id="tax-results", children=[
+                    dmc.Alert(
+                        "Enter your taxable income and click Calculate to see your tax breakdown",
+                        color="blue",
+                        title="Ready to calculate"
+                    )
+                ], style={"marginTop": "20px"})
+            ], gap="md")
+        ], p="lg", radius="md", withBorder=True, shadow="sm"),
+        
+        dmc.Divider(my="xl"),
         
         # True Cost Calculator Section
         dmc.Title("True Cost Calculator", order=3, mb="md"),
@@ -1726,6 +1968,109 @@ def update_greeting_message(n_intervals):
         }
     )
 
+# Callback for Tax Calculator
+@callback(
+    Output("tax-results", "children"),
+    [Input("calculate-tax", "n_clicks")],
+    [Input("tax-salary-input", "value"),
+     Input("medicare-levy-checkbox", "checked")]
+)
+def calculate_tax(n_clicks, taxable_income, include_medicare):
+    """Calculate Australian income tax for 2025-26"""
+    if not n_clicks or taxable_income is None or taxable_income == 0:
+        return dmc.Alert(
+            "Enter your taxable income and click Calculate to see your tax breakdown",
+            color="blue",
+            title="Ready to calculate"
+        )
+    
+    # Australian tax brackets for 2025-26
+    # Based on resident tax rates
+    income = taxable_income
+    tax = 0
+    
+    if income <= 18200:
+        tax = 0
+    elif income <= 45000:
+        tax = (income - 18200) * 0.16
+    elif income <= 135000:
+        tax = 4288 + (income - 45000) * 0.30
+    elif income <= 190000:
+        tax = 31288 + (income - 135000) * 0.37
+    else:
+        tax = 51638 + (income - 190000) * 0.45
+    
+    # Medicare levy (2% of taxable income)
+    medicare_levy = income * 0.02 if include_medicare else 0
+    
+    # Total tax
+    total_tax = tax + medicare_levy
+    
+    # After-tax income
+    after_tax_income = income - total_tax
+    
+    # Effective tax rate
+    effective_rate = (total_tax / income * 100) if income > 0 else 0
+    
+    # Marginal tax rate
+    if income <= 18200:
+        marginal_rate = 0
+    elif income <= 45000:
+        marginal_rate = 16
+    elif income <= 135000:
+        marginal_rate = 30
+    elif income <= 190000:
+        marginal_rate = 37
+    else:
+        marginal_rate = 45
+    
+    # Add Medicare levy to marginal rate if included
+    if include_medicare:
+        marginal_rate += 2
+    
+    return dmc.Stack([
+        dmc.Grid([
+            dmc.GridCol(
+                create_metric_card(
+                    "Income Tax",
+                    format_currency(tax),
+                    f"Based on {format_currency(income)} income"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Medicare Levy",
+                    format_currency(medicare_levy),
+                    "2% of taxable income" if include_medicare else "Not included"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "Total Tax",
+                    format_currency(total_tax),
+                    f"Effective rate: {effective_rate:.1f}%"
+                ),
+                span=3
+            ),
+            dmc.GridCol(
+                create_metric_card(
+                    "After-Tax Income",
+                    format_currency(after_tax_income),
+                    f"Marginal rate: {marginal_rate}%"
+                ),
+                span=3
+            ),
+        ], gutter="md"),
+        dmc.Alert(
+            f"Your marginal tax rate is {marginal_rate}%, meaning each additional dollar earned is taxed at this rate. Your effective tax rate (total tax / income) is {effective_rate:.1f}%.",
+            title="Tax Breakdown",
+            color="blue",
+            mt="md"
+        )
+    ], gap="md")
+
 # Callback for True Cost Calculator
 @callback(
     Output("true-cost-results", "children"),
@@ -1767,7 +2112,7 @@ def calculate_true_cost(n_clicks, purchase_price, salary):
     return dmc.Stack([
         dmc.Alert(
             f"To afford this {format_currency(purchase_price)} purchase, you'll need to work {hours_of_work:.1f} hours",
-            title="Labor Hours Required",
+            title="Labour Hours Required",
             color="blue"
         ),
         dmc.Alert(
