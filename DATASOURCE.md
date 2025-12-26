@@ -2,7 +2,7 @@
 
 This document details exactly where each visualization and data table in the My Finance Hub dashboard pulls its data from.
 
-**Excel File**: `data/vincent_financial_data.xlsx`
+**Excel File**: `user_data/vincent_financial_data.xlsx`
 
 ---
 

@@ -13,4 +13,4 @@ build/
 *~
 # Exclude all xlsx files except test data
 *.xlsx
-!data/test_financial_data.xlsx
+!user_data/test_financial_data.xlsx

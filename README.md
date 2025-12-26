@@ -31,7 +31,7 @@ pkill -f "python.*dash_app.py"
 
 ## Data File
 
-The app reads from: `data/vincent_financial_data.xlsx`
+The app reads from: `user_data/vincent_financial_data.xlsx`
 
 Make sure this file exists with the required sheets:
 - Assets & Liabilities
@@ -45,7 +45,8 @@ my-finance-hub/
 ├── dash_app.py         # Main Dash application
 ├── data_loader.py      # Excel data parser
 ├── requirements.txt    # Python dependencies
-└── data/
+├── data/               # Reference data (benchmarks, tax tables)
+└── user_data/          # User financial data
     └── vincent_financial_data.xlsx
 ```
 

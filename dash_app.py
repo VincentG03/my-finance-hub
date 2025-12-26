@@ -6,8 +6,8 @@ Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 # ============================================================================
 # CONFIGURATION: Set the Excel file to load
 # ============================================================================
-EXCEL_FILE = 'data/vincent_financial_data.xlsx'  
-#EXCEL_FILE = 'data/test_financial_data.xlsx'  # Change this to load a different file
+#EXCEL_FILE = 'user_data/vincent_financial_data.xlsx'  
+EXCEL_FILE = 'user_data/test_financial_data.xlsx'  # Change this to load a different file
 # ============================================================================
 
 import dash

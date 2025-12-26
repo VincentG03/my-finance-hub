@@ -12,7 +12,7 @@ EXCEL_FILE = 'data/your_filename.xlsx'
 
 ### Using Vincent's data (default):
 ```python
-EXCEL_FILE = 'data/vincent_financial_data.xlsx'
+EXCEL_FILE = 'user_data/vincent_financial_data.xlsx'
 ```
 
 ### Using a different person's data:
@@ -22,7 +22,7 @@ EXCEL_FILE = 'data/john_financial_data.xlsx'
 
 ### Using the copy file:
 ```python
-EXCEL_FILE = 'data/vincent_financial_data copy.xlsx'
+EXCEL_FILE = 'user_data/vincent_financial_data copy.xlsx'
 ```
 
 ## What the Code Handles Automatically

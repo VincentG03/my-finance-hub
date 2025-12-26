@@ -16,7 +16,7 @@ class FinanceDataLoader:
     Implements special parsing logic for wide-format Assets & Liabilities sheet
     """
     
-    def __init__(self, excel_path: str = 'data/vincent_financial_data.xlsx'):
+    def __init__(self, excel_path: str = 'user_data/vincent_financial_data.xlsx'):
         """
         Initialize data loader
         
@@ -406,7 +406,7 @@ class FinanceDataLoader:
 
 
 # Convenience function
-def load_data(excel_path: str = 'data/vincent_financial_data.xlsx') -> FinanceDataLoader:
+def load_data(excel_path: str = 'user_data/vincent_financial_data.xlsx') -> FinanceDataLoader:
     """
     Convenience function to create data loader
     
