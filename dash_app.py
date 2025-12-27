@@ -1946,12 +1946,27 @@ app.layout = dmc.MantineProvider(
                 p="md",
             ),
             dmc.AppShellMain(
-                children=html.Div(id="page-content", style={"padding": "20px"})
+                children=[
+                    html.Div(id="page-content", style={"padding": "20px"}),
+                    html.Div(id="scroll-trigger", style={"display": "none"})
+                ]
             ),
         ],
         navbar={"width": 250, "breakpoint": "sm"},
         padding="md",
     )
+)
+
+# Clientside callback to scroll to top on page change
+app.clientside_callback(
+    """
+    function(children) {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("scroll-trigger", "children"),
+    Input("page-content", "children")
 )
 
 # Callback for navigation
