@@ -18,8 +18,8 @@ Compare your portfolio returns against major market benchmarks (S&P 500, All Ord
 Monitor income streams, tax obligations, and superannuation contributions. Forecast retirement savings and understand your take-home pay across different scenarios.
 
 **Financial Calculators**  
-- **FIRE Calculator:** Plan your path to financial independence with detailed year-by-year projections showing both nominal and inflation-adjusted values
-- Additional calculators for mortgage repayment, borrowing power, and savings optimization (coming soon)
+A suite of predictive tools to model different financial scenarios, including a FIRE Calculator to plan your path to financial independence with detailed year-by-year projections showing both nominal and inflation-adjusted values.
+
 
 ## Demo
 
@@ -62,7 +62,7 @@ Required sheets (do NOT rename these):
 - Employment
 - Investments - Cost Basis
 
-Using your own Excel file (very simple):
+Using your own Excel file:
 
 1. Make a copy of the sample file and rename it. For example:
 
@@ -116,5 +116,3 @@ my-finance-hub/
 - See `requirements.txt` for package dependencies
 
 ---
-
-*Personal project - functionality subject to change*
