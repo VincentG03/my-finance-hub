@@ -2797,16 +2797,102 @@ def calculate_fire(n_clicks, fire_mode, current_age, retirement_age, portfolio_v
         
         return results, target_spend, explanation
     
-    # Calculate years to FIRE (simplified projection)
-    current_portfolio = portfolio_value
+    # Calculate years to FIRE - track both nominal and real values
+    nominal_portfolio = portfolio_value
     years_to_fire = 0
-    max_years = 100
+    max_years = 200  # Allow calculations up to 200 years if needed
     
-    while current_portfolio < fire_number and years_to_fire < max_years:
-        current_portfolio = current_portfolio * (1 + real_return) + annual_contribution
+    # Calculate until real (inflation-adjusted) portfolio reaches FIRE number
+    while years_to_fire < max_years:
+        # Calculate present value (inflation-adjusted)
+        inflation_factor = (1 + inflation) ** years_to_fire if years_to_fire >= 0 else 1
+        present_value = nominal_portfolio / inflation_factor if inflation_factor != 0 else nominal_portfolio
+        
+        if present_value >= fire_number:
+            break
+            
+        # Grow portfolio nominally for next year with inflation-adjusted contribution
+        inflation_adjusted_contribution = annual_contribution * ((1 + inflation) ** years_to_fire)
+        nominal_portfolio = nominal_portfolio * (1 + returns) + inflation_adjusted_contribution
         years_to_fire += 1
     
     fire_age = current_age + years_to_fire
+    # Build per-year calculation rows for the accordion table
+    calc_rows = []
+    nominal = portfolio_value
+    prev_nominal = None
+    fire_achieved_highlighted = False
+    # iterate from current age to calculated FIRE age inclusive
+    for year_offset, age in enumerate(range(current_age, fire_age + 1)):
+        years_from_now = year_offset
+        if year_offset == 0:
+            nominal = portfolio_value
+            investment_gain = 0.0
+            investment_gain_real = 0.0
+            contribution_nominal = 0.0
+            contribution_real = 0.0
+        else:
+            prev_nominal = nominal
+            # Annual contribution increases with inflation
+            contribution_nominal = (annual_contribution if annual_contribution else 0) * ((1 + inflation) ** (years_from_now - 1))
+            nominal = prev_nominal * (1 + returns) + contribution_nominal
+            investment_gain = nominal - prev_nominal - contribution_nominal
+
+        inflation_factor = (1 + inflation) ** years_from_now if years_from_now >= 0 else 1
+        present_value = nominal / inflation_factor if inflation_factor != 0 else nominal
+        investment_gain_real = investment_gain / inflation_factor if inflation_factor != 0 and year_offset > 0 else 0.0
+        contribution_real = contribution_nominal / inflation_factor if inflation_factor != 0 and year_offset > 0 else 0.0
+        cumulative_return_pct = ((nominal / portfolio_value) - 1) * 100 if portfolio_value and portfolio_value != 0 else 0
+
+        # Check if this is the first time we exceed FIRE number
+        is_fire_row = not fire_achieved_highlighted and present_value >= fire_number
+        if is_fire_row:
+            fire_achieved_highlighted = True
+        
+        # Style for the last value cell - green if FIRE achieved, blue otherwise
+        value_style = {"backgroundColor": "#C8E6C9", "color": "#2E7D32", "fontWeight": "bold"} if is_fire_row else {"backgroundColor": "#E3F2FD"}
+
+        calc_rows.append(
+            dmc.TableTr([
+                dmc.TableTd(str(age)),
+                dmc.TableTd(str(datetime.now().year + years_from_now)),
+                dmc.TableTd(f"x{inflation_factor:.2f}"),
+                dmc.TableTd(format_currency(contribution_nominal), style={"borderLeft": "2px solid #ddd"}),
+                dmc.TableTd(format_currency(investment_gain)),
+                dmc.TableTd(format_currency(nominal)),
+                dmc.TableTd(format_currency(contribution_real), style={"backgroundColor": "#E3F2FD", "borderLeft": "2px solid #1976D2"}),
+                dmc.TableTd(format_currency(investment_gain_real), style={"backgroundColor": "#E3F2FD"}),
+                dmc.TableTd(format_currency(present_value), style=value_style),
+            ])
+        )
+
+    fire_calc_table = dmc.Table([
+        dmc.TableThead([
+            dmc.TableTr([
+                dmc.TableTh("Age"),
+                dmc.TableTh("Year"),
+                dmc.TableTh("Inflation Factor"),
+                dmc.TableTh("Annual Contributions", style={"borderLeft": "2px solid #ddd"}),
+                dmc.TableTh("Investment Gain"),
+                dmc.TableTh("Value"),
+                dmc.TableTh("Annual Contributions", style={"backgroundColor": "#E3F2FD", "color": "#1976D2", "borderLeft": "2px solid #1976D2"}),
+                dmc.TableTh("Investment Gain", style={"backgroundColor": "#E3F2FD", "color": "#1976D2"}),
+                dmc.TableTh("Value", style={"backgroundColor": "#E3F2FD", "color": "#1976D2"}),
+            ])
+        ]),
+        dmc.TableTbody(calc_rows)
+    ], striped=True, highlightOnHover=True)
+    
+    # Add section labels above table
+    fire_calc_section = dmc.Stack([
+        html.Div([
+            dmc.Badge("Nominal $", size="lg", variant="outline", color="gray", 
+                     style={"position": "absolute", "left": "42%", "transform": "translateX(-50%)"}),
+            dmc.Badge("Real $ (Inflation Adjusted)", size="lg", variant="filled", color="blue",
+                     style={"position": "absolute", "left": "78%", "transform": "translateX(-50%)"}),
+        ], style={"position": "relative", "marginBottom": "10px", "height": "30px"}),
+        fire_calc_table
+    ], gap="xs")
     
     # Create results
     results = dmc.Stack([
@@ -2846,6 +2932,37 @@ def calculate_fire(n_clicks, fire_mode, current_age, retirement_age, portfolio_v
                 span=4
             ),
         ], gutter="md")
+        # Detailed per-year calculations (collapsed by default)
+        ,
+        dmc.Accordion(
+            children=[
+                dmc.AccordionItem(
+                    value="fire-calculations",
+                    children=[
+                        dmc.AccordionControl("View calculations"),
+                        dmc.AccordionPanel([
+                            dmc.Text("Per-year FIRE projection (rows: current age → FIRE age)", size="sm", c="dimmed", mb="xs"),
+                            dmc.List(
+                                [
+                                    dmc.ListItem("Annual contributions automatically increase with inflation each year (maintaining purchasing power)"),
+                                    dmc.ListItem("Nominal $ = future dollar amounts without inflation adjustment"),
+                                    dmc.ListItem("Real $ = inflation-adjusted values in today's purchasing power"),
+                                    dmc.ListItem("FIRE is achieved when 'Value (Real $)' reaches your FIRE number"),
+                                    dmc.ListItem("Investment gain = portfolio growth from returns only (excluding your contributions)"),
+                                ],
+                                size="sm",
+                                c="dimmed",
+                                mb="md"
+                            ),
+                            fire_calc_section
+                        ]),
+                    ]
+                )
+            ],
+            variant="separated",
+            radius="md",
+            multiple=False
+        )
     ], gap="md")
     
     return results, target_spend, explanation

@@ -1,6 +1,30 @@
 # My Finance Hub
 
-Personal finance dashboard built with Plotly Dash.
+I built My Finance Hub to solve a problem I faced after tracking my finances manually in Excel for three years: spreadsheets are great for storage, but terrible for insight. I needed a robust, scalable platform that could evolve with my financial journey over the next decades.
+
+This dashboard serves as my "one-stop shop" for financial health, turning static rows of data into interactive visualizations that track net worth, liabilities, income streams, and investment performance over time.
+
+**Note:** The included demo data is dummy data for demonstration purposes. Replace it with your own financial data to get started.
+
+## What's Inside
+
+**Assets & Liabilities**  
+Track your complete financial picture across multiple accounts and asset classes. Visualize net worth trends over time, monitor debt paydown progress, and see your portfolio allocation at a glance.
+
+**Investment Performance**  
+Compare your portfolio returns against major market benchmarks (S&P 500, All Ords). Track cost basis, realized gains, and see how your investment strategy is performing in real-time.
+
+**Income & Employment**  
+Monitor income streams, tax obligations, and superannuation contributions. Forecast retirement savings and understand your take-home pay across different scenarios.
+
+**Financial Calculators**  
+- **FIRE Calculator:** Plan your path to financial independence with detailed year-by-year projections showing both nominal and inflation-adjusted values
+- Additional calculators for mortgage repayment, borrowing power, and savings optimization (coming soon)
+
+## Demo
+
+https://github.com/user-attachments/assets/your-video-file.mp4
+
 
 ## Quick Start
 
@@ -84,6 +108,7 @@ my-finance-hub/
 └── user_data/          # User financial data
     └── test_financial_data.xlsx  # The sample/test file you should copy or edit with your own data
 ```
+
 
 ## Requirements
 
