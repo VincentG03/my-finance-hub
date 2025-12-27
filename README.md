@@ -6,6 +6,10 @@ This dashboard serves as my "one-stop shop" for financial health, turning static
 
 **Note:** The included demo data is dummy data for demonstration purposes. Replace it with your own financial data to get started.
 
+
+<img width="1797" height="938" alt="image" src="https://github.com/user-attachments/assets/51b0af8b-4faf-4ce8-8f24-b7e06216b5a4" />
+
+
 ## What's Inside
 
 **Assets & Liabilities**  
@@ -23,7 +27,8 @@ A suite of predictive tools to model different financial scenarios, including a 
 
 ## Demo
 
-https://github.com/user-attachments/assets/your-video-file.mp4
+https://github.com/user-attachments/assets/372040cb-50fd-4a7a-abda-004eca7689c9
+
 
 
 ## Quick Start
