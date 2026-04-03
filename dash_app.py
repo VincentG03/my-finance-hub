@@ -6,6 +6,8 @@ Professional FinTech dashboard using Plotly Dash and Dash Mantine Components
 # ============================================================================
 # CONFIGURATION: Set the Excel file to load
 # ============================================================================
+#EXCEL_FILE = 'user_data/vincent_financial_data.xlsx'  # Change this to load a different file
+#EXCEL_FILE = 'user_data/amy_financial_data.xlsx'  # Change this to load a different file
 EXCEL_FILE = 'user_data/test_financial_data.xlsx'  # Change this to load a different file
 # ============================================================================
 
@@ -549,8 +551,8 @@ def dashboard_layout():
             withBorder=True
         ),
         
-        # Month-over-month
-        dmc.Title("Month-over-Month Changes", order=3, mb="md", mt="xl"),
+        # Quarter-over-quarter
+        dmc.Title("Quarter-over-Quarter Changes", order=3, mb="md", mt="xl"),
         dmc.Paper(
             dcc.Graph(figure=fig_mom, config={'displayModeBar': False}),
             p="md",
